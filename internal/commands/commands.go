@@ -15,27 +15,6 @@ import (
 	"PanickedBot/internal/discord"
 )
 
-// BDO class choices
-func getClassChoices() []*discordgo.ApplicationCommandOptionChoice {
-	classes := []string{
-		"Archer", "Berserker", "Corsair", "Dark Knight", "Drakania",
-		"Guardian", "Hashashin", "Kunoichi", "Lahn", "Maegu",
-		"Maehwa", "Musa", "Mystic", "Ninja", "Nova",
-		"Ranger", "Sage", "Scholar", "Seraph", "Shai",
-		"Sorceress", "Striker", "Tamer", "Valkyrie", "Warrior",
-		"Witch", "Wizard", "Wukong", "Woosa",
-	}
-	
-	choices := make([]*discordgo.ApplicationCommandOptionChoice, len(classes))
-	for i, class := range classes {
-		choices[i] = &discordgo.ApplicationCommandOptionChoice{
-			Name:  class,
-			Value: strings.ToLower(class),
-		}
-	}
-	return choices
-}
-
 // Spec choices
 func getSpecChoices() []*discordgo.ApplicationCommandOptionChoice {
 	return []*discordgo.ApplicationCommandOptionChoice{
@@ -136,7 +115,6 @@ func GetCommands() []*discordgo.ApplicationCommand {
 					Name:        "class",
 					Description: "Your BDO class",
 					Required:    false,
-					Choices:     getClassChoices(),
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
@@ -168,7 +146,6 @@ func GetCommands() []*discordgo.ApplicationCommand {
 					Name:        "class",
 					Description: "Member's BDO class",
 					Required:    false,
-					Choices:     getClassChoices(),
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
