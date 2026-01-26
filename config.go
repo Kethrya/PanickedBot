@@ -5,7 +5,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/bwmarrin/discordgo"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -46,19 +45,4 @@ func loadGuildConfig(db *sqlx.DB, guildID string) (*GuildConfig, error) {
 		return nil, err
 	}
 	return &cfg, nil
-}
-
-func isAllowedChannel(i *discordgo.InteractionCreate, cfg *GuildConfig) bool {
-	// If no channel configured yet, allow anywhere (pre-setup)
-	if cfg.ResultsChannelID == "" {
-		return true
-	}
-	return i.ChannelID == cfg.ResultsChannelID
-}
-
-func resultChannel(i *discordgo.InteractionCreate, cfg *GuildConfig) string {
-	if cfg.ResultsChannelID != "" {
-		return cfg.ResultsChannelID
-	}
-	return i.ChannelID
 }
