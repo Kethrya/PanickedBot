@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -792,41 +793,97 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 		return
 	}
 	
-	// Build response message
+	// Build response message with aligned columns
 	var response strings.Builder
-	response.WriteString("**Guild Roster Members**\n\n")
+	response.WriteString("**Guild Roster Members**\n```\n")
 	
+	// Header
+	response.WriteString(fmt.Sprintf("%-20s %-20s %-15s %-12s\n", "BDO Name", "Family Name", "Class", "Spec"))
+	response.WriteString(strings.Repeat("-", 70) + "\n")
+	
+	// Data rows
 	for _, member := range members {
-		response.WriteString("**" + member.BDOName + "**\n")
-		
-		// Discord User ID
-		if member.DiscordUserID != nil {
-			response.WriteString("  Discord: <@" + *member.DiscordUserID + ">\n")
+		bdoName := member.BDOName
+		if len(bdoName) > 20 {
+			bdoName = bdoName[:17] + "..."
 		}
 		
-		// Family Name
+		familyName := ""
 		if member.FamilyName != nil && *member.FamilyName != "" {
-			response.WriteString("  Family: " + *member.FamilyName + "\n")
-		}
-		
-		// Class
-		if member.Class != nil && *member.Class != "" {
-			response.WriteString("  Class: " + *member.Class)
-			
-			// Spec (if class exists)
-			if member.Spec != nil && *member.Spec != "" {
-				response.WriteString(" (" + *member.Spec + ")")
+			familyName = *member.FamilyName
+			if len(familyName) > 20 {
+				familyName = familyName[:17] + "..."
 			}
-			response.WriteString("\n")
 		}
 		
-		response.WriteString("\n")
+		class := ""
+		if member.Class != nil && *member.Class != "" {
+			class = *member.Class
+			if len(class) > 15 {
+				class = class[:12] + "..."
+			}
+		}
+		
+		spec := ""
+		if member.Spec != nil && *member.Spec != "" {
+			spec = *member.Spec
+			if len(spec) > 12 {
+				spec = spec[:9] + "..."
+			}
+		}
+		
+		response.WriteString(fmt.Sprintf("%-20s %-20s %-15s %-12s\n", bdoName, familyName, class, spec))
 	}
+	
+	response.WriteString("```")
 	
 	// Discord has a 2000 character limit for messages
 	responseText := response.String()
 	if len(responseText) > 2000 {
-		discord.RespondEphemeral(s, i, "Roster too large to display. Showing first 2000 characters:\n\n"+responseText[:1997]+"...")
+		// If too long, show fewer rows
+		var truncatedResponse strings.Builder
+		truncatedResponse.WriteString("**Guild Roster Members** (showing first entries)\n```\n")
+		truncatedResponse.WriteString(fmt.Sprintf("%-20s %-20s %-15s %-12s\n", "BDO Name", "Family Name", "Class", "Spec"))
+		truncatedResponse.WriteString(strings.Repeat("-", 70) + "\n")
+		
+		for _, member := range members {
+			bdoName := member.BDOName
+			if len(bdoName) > 20 {
+				bdoName = bdoName[:17] + "..."
+			}
+			
+			familyName := ""
+			if member.FamilyName != nil && *member.FamilyName != "" {
+				familyName = *member.FamilyName
+				if len(familyName) > 20 {
+					familyName = familyName[:17] + "..."
+				}
+			}
+			
+			class := ""
+			if member.Class != nil && *member.Class != "" {
+				class = *member.Class
+				if len(class) > 15 {
+					class = class[:12] + "..."
+				}
+			}
+			
+			spec := ""
+			if member.Spec != nil && *member.Spec != "" {
+				spec = *member.Spec
+				if len(spec) > 12 {
+					spec = spec[:9] + "..."
+				}
+			}
+			
+			line := fmt.Sprintf("%-20s %-20s %-15s %-12s\n", bdoName, familyName, class, spec)
+			if len(truncatedResponse.String()+line+"```") > 1990 {
+				break
+			}
+			truncatedResponse.WriteString(line)
+		}
+		truncatedResponse.WriteString("```")
+		discord.RespondText(s, i, truncatedResponse.String())
 	} else {
 		discord.RespondText(s, i, responseText)
 	}
