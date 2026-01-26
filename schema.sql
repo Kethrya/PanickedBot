@@ -33,10 +33,10 @@ CREATE TABLE IF NOT EXISTS config (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
--- Groups
+-- Teams
 -- ============================================================================
 
-CREATE TABLE IF NOT EXISTS `groups` (
+CREATE TABLE IF NOT EXISTS teams (
   id               BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   discord_guild_id VARCHAR(32) NOT NULL,
   code             VARCHAR(32) NOT NULL,
@@ -44,10 +44,10 @@ CREATE TABLE IF NOT EXISTS `groups` (
   is_active        TINYINT(1) NOT NULL DEFAULT 1,
   created_at       DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (id),
-  UNIQUE KEY uq_groups_guild_code (discord_guild_id, code),
-  UNIQUE KEY uq_groups_guild_display (discord_guild_id, display_name),
-  KEY idx_groups_guild_active (discord_guild_id, is_active),
-  CONSTRAINT fk_groups_guild
+  UNIQUE KEY uq_teams_guild_code (discord_guild_id, code),
+  UNIQUE KEY uq_teams_guild_display (discord_guild_id, display_name),
+  KEY idx_teams_guild_active (discord_guild_id, is_active),
+  CONSTRAINT fk_teams_guild
     FOREIGN KEY (discord_guild_id) REFERENCES guilds(discord_guild_id)
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS roster_members (
   family_name       VARCHAR(128) NULL,
   class             VARCHAR(64) NULL COMMENT 'BDO class name',
   spec              VARCHAR(32) NULL COMMENT 'Class specialization: succession, awakening, or ascension',
-  group_id          BIGINT UNSIGNED NULL,
+  team_id           BIGINT UNSIGNED NULL,
   
   -- Combat stats
   ap                INT UNSIGNED NULL COMMENT 'Attack Power',
@@ -89,12 +89,12 @@ CREATE TABLE IF NOT EXISTS roster_members (
   UNIQUE KEY uq_roster_guild_name (discord_guild_id, bdo_name),
   KEY idx_roster_guild_active (discord_guild_id, is_active),
   KEY idx_roster_discord_user (discord_user_id),
-  KEY idx_roster_group (group_id),
+  KEY idx_roster_team (team_id),
   CONSTRAINT fk_roster_guild
     FOREIGN KEY (discord_guild_id) REFERENCES guilds(discord_guild_id)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_roster_group
-    FOREIGN KEY (group_id) REFERENCES `groups`(id)
+  CONSTRAINT fk_roster_team
+    FOREIGN KEY (team_id) REFERENCES teams(id)
     ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -169,20 +169,20 @@ CREATE TABLE IF NOT EXISTS war_lines (
   match_confidence DECIMAL(5,4) NULL,
   class            VARCHAR(64) NULL COMMENT 'BDO class name',
   spec             VARCHAR(32) NULL COMMENT 'Class specialization',
-  group_id         BIGINT UNSIGNED NULL,
+  team_id          BIGINT UNSIGNED NULL,
   created_at       DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (id),
   KEY idx_lines_war (war_id),
   KEY idx_lines_member (roster_member_id),
-  KEY idx_lines_group (group_id),
+  KEY idx_lines_team (team_id),
   CONSTRAINT fk_lines_war
     FOREIGN KEY (war_id) REFERENCES wars(id)
     ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_lines_member
     FOREIGN KEY (roster_member_id) REFERENCES roster_members(id)
     ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_lines_group
-    FOREIGN KEY (group_id) REFERENCES `groups`(id)
+  CONSTRAINT fk_lines_team
+    FOREIGN KEY (team_id) REFERENCES teams(id)
     ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

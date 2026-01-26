@@ -1,4 +1,4 @@
-package config
+package internal
 
 import (
 	"errors"
@@ -23,8 +23,8 @@ type GuildConfig struct {
 	ResultsChannelID  string `db:"results_channel_id"`
 }
 
-// LoadFromEnv loads configuration from environment variables
-func LoadFromEnv() (Config, error) {
+// LoadConfigFromEnv loads configuration from environment variables
+func LoadConfigFromEnv() (Config, error) {
 	get := func(key string) string { return strings.TrimSpace(os.Getenv(key)) }
 	c := Config{
 		DiscordToken: get("DISCORD_BOT_TOKEN"),

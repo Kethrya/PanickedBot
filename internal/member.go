@@ -1,8 +1,7 @@
-package member
+package internal
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -19,19 +18,19 @@ type Member struct {
 	FamilyName     string `db:"family_name"`
 	Class          string `db:"class"`
 	Spec           string `db:"spec"`
-	GroupID        *int64 `db:"group_id"`
+	TeamID         *int64 `db:"team_id"`
 	
 	// Combat stats
-	AP       *int `db:"ap"`
-	AAP      *int `db:"aap"`
-	DP       *int `db:"dp"`
-	Evasion  *int `db:"evasion"`
-	DR       *int `db:"dr"`
+	AP       *int     `db:"ap"`
+	AAP      *int     `db:"aap"`
+	DP       *int     `db:"dp"`
+	Evasion  *int     `db:"evasion"`
+	DR       *int     `db:"dr"`
 	DRR      *float64 `db:"drr"`
-	Accuracy *int `db:"accuracy"`
-	HP       *int `db:"hp"`
-	TotalAP  *int `db:"total_ap"`
-	TotalAAP *int `db:"total_aap"`
+	Accuracy *int     `db:"accuracy"`
+	HP       *int     `db:"hp"`
+	TotalAP  *int     `db:"total_ap"`
+	TotalAAP *int     `db:"total_aap"`
 	
 	// Status flags
 	MeetsCap    bool `db:"meets_cap"`
@@ -44,16 +43,16 @@ type UpdateFields struct {
 	FamilyName *string
 	Class      *string
 	Spec       *string
-	GroupID    *int64
+	TeamID     *int64
 	MeetsCap   *bool
 }
 
-// GetByDiscordUserID retrieves a member by Discord user ID
-func GetByDiscordUserID(db *sqlx.DB, guildID, userID string) (*Member, error) {
+// GetMemberByDiscordUserID retrieves a member by Discord user ID
+func GetMemberByDiscordUserID(db *sqlx.DB, guildID, userID string) (*Member, error) {
 	var m Member
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
-		       class, spec, group_id, ap, aap, dp, evasion, dr, drr, 
+		       class, spec, team_id, ap, aap, dp, evasion, dr, drr, 
 		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
 		FROM roster_members 
 		WHERE discord_guild_id = ? AND discord_user_id = ? AND is_active = 1
@@ -64,12 +63,12 @@ func GetByDiscordUserID(db *sqlx.DB, guildID, userID string) (*Member, error) {
 	return &m, nil
 }
 
-// GetByFamilyName retrieves a member by BDO family name
-func GetByFamilyName(db *sqlx.DB, guildID, familyName string) (*Member, error) {
+// GetMemberByFamilyName retrieves a member by BDO family name
+func GetMemberByFamilyName(db *sqlx.DB, guildID, familyName string) (*Member, error) {
 	var m Member
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
-		       class, spec, group_id, ap, aap, dp, evasion, dr, drr, 
+		       class, spec, team_id, ap, aap, dp, evasion, dr, drr, 
 		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
 		FROM roster_members 
 		WHERE discord_guild_id = ? AND family_name = ? AND is_active = 1
@@ -80,24 +79,12 @@ func GetByFamilyName(db *sqlx.DB, guildID, familyName string) (*Member, error) {
 	return &m, nil
 }
 
-// GetByDiscordUserIDOrFamilyName retrieves a member by Discord user ID or family name
-// This is a convenience function for cases where either identifier may be provided
-func GetByDiscordUserIDOrFamilyName(db *sqlx.DB, guildID, discordUserID, familyName string) (*Member, error) {
-	if discordUserID != "" {
-		return GetByDiscordUserID(db, guildID, discordUserID)
-	}
-	if familyName != "" {
-		return GetByFamilyName(db, guildID, familyName)
-	}
-	return nil, sql.ErrNoRows
-}
-
-// GetByDiscordUserIDIncludingInactive retrieves a member by Discord user ID, including inactive members
-func GetByDiscordUserIDIncludingInactive(db *sqlx.DB, guildID, userID string) (*Member, error) {
+// GetMemberByDiscordUserIDIncludingInactive retrieves a member by Discord user ID, including inactive members
+func GetMemberByDiscordUserIDIncludingInactive(db *sqlx.DB, guildID, userID string) (*Member, error) {
 	var m Member
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
-		       class, spec, group_id, ap, aap, dp, evasion, dr, drr, 
+		       class, spec, team_id, ap, aap, dp, evasion, dr, drr, 
 		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
 		FROM roster_members 
 		WHERE discord_guild_id = ? AND discord_user_id = ?
@@ -108,12 +95,12 @@ func GetByDiscordUserIDIncludingInactive(db *sqlx.DB, guildID, userID string) (*
 	return &m, nil
 }
 
-// GetByFamilyNameIncludingInactive retrieves a member by BDO family name, including inactive members
-func GetByFamilyNameIncludingInactive(db *sqlx.DB, guildID, familyName string) (*Member, error) {
+// GetMemberByFamilyNameIncludingInactive retrieves a member by BDO family name, including inactive members
+func GetMemberByFamilyNameIncludingInactive(db *sqlx.DB, guildID, familyName string) (*Member, error) {
 	var m Member
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
-		       class, spec, group_id, ap, aap, dp, evasion, dr, drr, 
+		       class, spec, team_id, ap, aap, dp, evasion, dr, drr, 
 		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
 		FROM roster_members 
 		WHERE discord_guild_id = ? AND family_name = ?
@@ -124,8 +111,8 @@ func GetByFamilyNameIncludingInactive(db *sqlx.DB, guildID, familyName string) (
 	return &m, nil
 }
 
-// Update updates member fields
-func Update(db *sqlx.DB, memberID int64, fields UpdateFields) error {
+// UpdateMember updates member fields
+func UpdateMember(db *sqlx.DB, memberID int64, fields UpdateFields) error {
 	updates := []string{}
 	args := []interface{}{}
 	
@@ -141,9 +128,9 @@ func Update(db *sqlx.DB, memberID int64, fields UpdateFields) error {
 		updates = append(updates, "spec = ?")
 		args = append(args, *fields.Spec)
 	}
-	if fields.GroupID != nil {
-		updates = append(updates, "group_id = ?")
-		args = append(args, *fields.GroupID)
+	if fields.TeamID != nil {
+		updates = append(updates, "team_id = ?")
+		args = append(args, *fields.TeamID)
 	}
 	if fields.MeetsCap != nil {
 		updates = append(updates, "meets_cap = ?")
@@ -168,8 +155,8 @@ func Update(db *sqlx.DB, memberID int64, fields UpdateFields) error {
 	return err
 }
 
-// SetActive sets the is_active flag for a member
-func SetActive(db *sqlx.DB, memberID int64, active bool) error {
+// SetMemberActive sets the is_active flag for a member
+func SetMemberActive(db *sqlx.DB, memberID int64, active bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	
