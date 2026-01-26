@@ -679,14 +679,14 @@ func handleInactive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *s
 		return
 	}
 	
-	// Get member record
+	// Get member record - use functions that include inactive members
 	var m *member.Member
 	var err error
 	
 	if targetUser != nil {
-		m, err = member.GetByDiscordUserID(dbx, i.GuildID, targetUser.ID)
+		m, err = member.GetByDiscordUserIDIncludingInactive(dbx, i.GuildID, targetUser.ID)
 	} else {
-		m, err = member.GetByFamilyName(dbx, i.GuildID, familyName)
+		m, err = member.GetByFamilyNameIncludingInactive(dbx, i.GuildID, familyName)
 	}
 	
 	if err == sql.ErrNoRows {
@@ -734,23 +734,14 @@ func handleActive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 		return
 	}
 	
-	// Get member record - for active command, we need to look up even inactive members
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	
-	var memberID int64
+	// Get member record - use functions that include inactive members
+	var m *member.Member
 	var err error
 	
 	if targetUser != nil {
-		err = dbx.GetContext(ctx, &memberID, `
-			SELECT id FROM roster_members 
-			WHERE discord_guild_id = ? AND discord_user_id = ?
-		`, i.GuildID, targetUser.ID)
+		m, err = member.GetByDiscordUserIDIncludingInactive(dbx, i.GuildID, targetUser.ID)
 	} else {
-		err = dbx.GetContext(ctx, &memberID, `
-			SELECT id FROM roster_members 
-			WHERE discord_guild_id = ? AND family_name = ?
-		`, i.GuildID, familyName)
+		m, err = member.GetByFamilyNameIncludingInactive(dbx, i.GuildID, familyName)
 	}
 	
 	if err == sql.ErrNoRows {
@@ -763,7 +754,7 @@ func handleActive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 	}
 	
 	// Set active
-	err = member.SetActive(dbx, memberID, true)
+	err = member.SetActive(dbx, m.ID, true)
 	if err != nil {
 		log.Printf("active error: %v", err)
 		discord.RespondEphemeral(s, i, "DB error marking member as active.")

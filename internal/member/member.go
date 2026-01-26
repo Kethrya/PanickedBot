@@ -91,6 +91,38 @@ func GetByDiscordUserIDOrFamilyName(db *sqlx.DB, guildID, discordUserID, familyN
 	return nil, sql.ErrNoRows
 }
 
+// GetByDiscordUserIDIncludingInactive retrieves a member by Discord user ID, including inactive members
+func GetByDiscordUserIDIncludingInactive(db *sqlx.DB, guildID, userID string) (*Member, error) {
+	var m Member
+	err := db.Get(&m, `
+		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
+		       class, spec, group_id, ap, aap, dp, evasion, dr, drr, 
+		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
+		FROM roster_members 
+		WHERE discord_guild_id = ? AND discord_user_id = ?
+	`, guildID, userID)
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
+// GetByFamilyNameIncludingInactive retrieves a member by BDO family name, including inactive members
+func GetByFamilyNameIncludingInactive(db *sqlx.DB, guildID, familyName string) (*Member, error) {
+	var m Member
+	err := db.Get(&m, `
+		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
+		       class, spec, group_id, ap, aap, dp, evasion, dr, drr, 
+		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
+		FROM roster_members 
+		WHERE discord_guild_id = ? AND family_name = ?
+	`, guildID, familyName)
+	if err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
 // Update updates member fields
 func Update(db *sqlx.DB, memberID int64, fields UpdateFields) error {
 	updates := []string{}
