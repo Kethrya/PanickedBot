@@ -13,15 +13,6 @@ import (
 	"PanickedBot/internal/discord"
 )
 
-func respondText(s *discordgo.Session, i *discordgo.InteractionCreate, msg string) {
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: msg,
-		},
-	})
-}
-
 func setupCommand() *discordgo.ApplicationCommand {
 	return &discordgo.ApplicationCommand{
 		Name:        "setup",
@@ -183,7 +174,7 @@ func createInteractionHandler(database *sqlx.DB) func(s *discordgo.Session, i *d
 		}
 
 		if i.GuildID == "" {
-			respondText(s, i, "This bot only works in servers.")
+			discord.RespondText(s, i, "This bot only works in servers.")
 			return
 		}
 
