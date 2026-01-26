@@ -204,6 +204,10 @@ func GetCommands() []*discordgo.ApplicationCommand {
 				},
 			},
 		},
+		{
+			Name:        "getroster",
+			Description: "Get all roster member information (officer role required)",
+		},
 	}
 }
 
@@ -769,6 +773,65 @@ func handleActive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 	discord.RespondText(s, i, "Member marked as active successfully.")
 }
 
+func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.DB, cfg *internal.GuildConfig) {
+	if !hasOfficerPermission(s, i, cfg) {
+		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
+		return
+	}
+	
+	// Get all roster members
+	members, err := internal.GetAllRosterMembers(dbx, i.GuildID)
+	if err != nil {
+		log.Printf("getroster error: %v", err)
+		discord.RespondEphemeral(s, i, "DB error retrieving roster members.")
+		return
+	}
+	
+	if len(members) == 0 {
+		discord.RespondEphemeral(s, i, "No active roster members found.")
+		return
+	}
+	
+	// Build response message
+	var response strings.Builder
+	response.WriteString("**Guild Roster Members**\n\n")
+	
+	for _, member := range members {
+		response.WriteString("**" + member.BDOName + "**\n")
+		
+		// Discord User ID
+		if member.DiscordUserID != nil {
+			response.WriteString("  Discord: <@" + *member.DiscordUserID + ">\n")
+		}
+		
+		// Family Name
+		if member.FamilyName != nil && *member.FamilyName != "" {
+			response.WriteString("  Family: " + *member.FamilyName + "\n")
+		}
+		
+		// Class
+		if member.Class != nil && *member.Class != "" {
+			response.WriteString("  Class: " + *member.Class)
+			
+			// Spec (if class exists)
+			if member.Spec != nil && *member.Spec != "" {
+				response.WriteString(" (" + *member.Spec + ")")
+			}
+			response.WriteString("\n")
+		}
+		
+		response.WriteString("\n")
+	}
+	
+	// Discord has a 2000 character limit for messages
+	responseText := response.String()
+	if len(responseText) > 2000 {
+		discord.RespondEphemeral(s, i, "Roster too large to display. Showing first 2000 characters:\n\n"+responseText[:1997]+"...")
+	} else {
+		discord.RespondText(s, i, responseText)
+	}
+}
+
 // CreateInteractionHandler creates the interaction handler for commands
 func CreateInteractionHandler(database *sqlx.DB) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -831,6 +894,9 @@ func CreateInteractionHandler(database *sqlx.DB) func(s *discordgo.Session, i *d
 
 		case "active":
 			handleActive(s, i, database, cfg)
+
+		case "getroster":
+			handleGetRoster(s, i, database, cfg)
 
 		default:
 			discord.RespondEphemeral(s, i, "Unknown command.")
