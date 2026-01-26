@@ -1,4 +1,4 @@
-package guild
+package internal
 
 import (
 	"context"

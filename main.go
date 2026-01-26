@@ -10,14 +10,13 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 
+	"PanickedBot/internal"
 	"PanickedBot/internal/commands"
-	"PanickedBot/internal/config"
 	"PanickedBot/internal/db"
-	"PanickedBot/internal/guild"
 )
 
 func main() {
-	cfg, err := config.LoadFromEnv()
+	cfg, err := internal.LoadConfigFromEnv()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -64,7 +63,7 @@ func main() {
 		log.Printf("registered global /%s", cmd.Name)
 	}
 
-	if err := guild.EnsureGuildRows(database, dg.State.Guilds); err != nil {
+	if err := internal.EnsureGuildRows(database, dg.State.Guilds); err != nil {
 		log.Printf("bootstrap guild rows warning: %v", err)
 	}
 
