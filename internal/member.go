@@ -11,14 +11,14 @@ import (
 
 // Member represents a roster member
 type Member struct {
-	ID             int64  `db:"id"`
-	DiscordGuildID string `db:"discord_guild_id"`
-	DiscordUserID  string `db:"discord_user_id"`
-	BDOName        string `db:"bdo_name"`
-	FamilyName     string `db:"family_name"`
-	Class          string `db:"class"`
-	Spec           string `db:"spec"`
-	TeamID         *int64 `db:"team_id"`
+	ID             int64   `db:"id"`
+	DiscordGuildID string  `db:"discord_guild_id"`
+	DiscordUserID  *string `db:"discord_user_id"`
+	BDOName        string  `db:"bdo_name"`
+	FamilyName     *string `db:"family_name"`
+	Class          *string `db:"class"`
+	Spec           *string `db:"spec"`
+	TeamID         *int64  `db:"team_id"`
 	
 	// Combat stats
 	AP       *int     `db:"ap"`
