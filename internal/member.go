@@ -185,3 +185,20 @@ func SetMemberActive(db *sqlx.DB, memberID int64, active bool) error {
 	
 	return err
 }
+
+// GetAllRosterMembers retrieves all active roster members for a guild
+func GetAllRosterMembers(db *sqlx.DB, guildID string) ([]Member, error) {
+	var members []Member
+	err := db.Select(&members, `
+		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
+		       class, spec, team_id, ap, aap, dp, evasion, dr, drr, 
+		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
+		FROM roster_members 
+		WHERE discord_guild_id = ? AND is_active = 1
+		ORDER BY bdo_name
+	`, guildID)
+	if err != nil {
+		return nil, err
+	}
+	return members, nil
+}
