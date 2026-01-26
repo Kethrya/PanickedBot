@@ -1,4 +1,4 @@
-package main
+package guild
 
 import (
 	"context"
@@ -10,7 +10,8 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-func ensureGuildRows(dbx *sqlx.DB, guildStates []*discordgo.Guild) error {
+// EnsureGuildRows ensures that guild rows exist in the database
+func EnsureGuildRows(dbx *sqlx.DB, guildStates []*discordgo.Guild) error {
 	if len(guildStates) == 0 {
 		return nil
 	}
@@ -39,7 +40,8 @@ func ensureGuildRows(dbx *sqlx.DB, guildStates []*discordgo.Guild) error {
 	return tx.Commit()
 }
 
-func nullIfEmpty(s string) any {
+// NullIfEmpty returns nil if the string is empty, otherwise returns the string
+func NullIfEmpty(s string) any {
 	if strings.TrimSpace(s) == "" {
 		return nil
 	}

@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"errors"
@@ -8,22 +8,25 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type config struct {
+// Config holds application configuration
+type Config struct {
 	DiscordToken string
 	DatabaseDSN  string
 }
 
+// GuildConfig represents guild-specific configuration
 type GuildConfig struct {
-	OfficerRoleID      string `db:"officer_role_id"`
-	GuildMemberRoleID  string `db:"guild_member_role_id"`
-	MercenaryRoleID    string `db:"mercenary_role_id"`
-	CommandChannelID   string `db:"command_channel_id"`
-	ResultsChannelID   string `db:"results_channel_id"`
+	OfficerRoleID     string `db:"officer_role_id"`
+	GuildMemberRoleID string `db:"guild_member_role_id"`
+	MercenaryRoleID   string `db:"mercenary_role_id"`
+	CommandChannelID  string `db:"command_channel_id"`
+	ResultsChannelID  string `db:"results_channel_id"`
 }
 
-func loadConfigFromEnv() (config, error) {
+// LoadFromEnv loads configuration from environment variables
+func LoadFromEnv() (Config, error) {
 	get := func(key string) string { return strings.TrimSpace(os.Getenv(key)) }
-	c := config{
+	c := Config{
 		DiscordToken: get("DISCORD_BOT_TOKEN"),
 		DatabaseDSN:  get("DATABASE_DSN"),
 	}
@@ -36,7 +39,8 @@ func loadConfigFromEnv() (config, error) {
 	return c, nil
 }
 
-func loadGuildConfig(db *sqlx.DB, guildID string) (*GuildConfig, error) {
+// LoadGuildConfig loads guild-specific configuration from database
+func LoadGuildConfig(db *sqlx.DB, guildID string) (*GuildConfig, error) {
 	var cfg GuildConfig
 	err := db.Get(&cfg, `
 		SELECT officer_role_id, guild_member_role_id, mercenary_role_id, 

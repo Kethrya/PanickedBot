@@ -79,7 +79,7 @@ CREATE TABLE IF NOT EXISTS roster_members (
   total_aap         INT UNSIGNED NULL COMMENT 'Total Awakening Attack Power',
   
   -- Status flags
-  mets_cap          TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Officer verified member meets required stat caps',
+  meets_cap         TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Officer verified member meets required stat caps',
   is_exception      TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Member K/D stats excluded from guild overall K/D calculations',
   is_active         TINYINT(1) NOT NULL DEFAULT 1,
   created_at        DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
