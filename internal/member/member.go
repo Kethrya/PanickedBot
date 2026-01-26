@@ -52,7 +52,10 @@ type UpdateFields struct {
 func GetByDiscordUserID(db *sqlx.DB, guildID, userID string) (*Member, error) {
 	var m Member
 	err := db.Get(&m, `
-		SELECT * FROM roster_members 
+		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
+		       class, spec, group_id, ap, aap, dp, evasion, dr, drr, 
+		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
+		FROM roster_members 
 		WHERE discord_guild_id = ? AND discord_user_id = ? AND is_active = 1
 	`, guildID, userID)
 	if err != nil {
@@ -65,7 +68,10 @@ func GetByDiscordUserID(db *sqlx.DB, guildID, userID string) (*Member, error) {
 func GetByFamilyName(db *sqlx.DB, guildID, familyName string) (*Member, error) {
 	var m Member
 	err := db.Get(&m, `
-		SELECT * FROM roster_members 
+		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
+		       class, spec, group_id, ap, aap, dp, evasion, dr, drr, 
+		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
+		FROM roster_members 
 		WHERE discord_guild_id = ? AND family_name = ? AND is_active = 1
 	`, guildID, familyName)
 	if err != nil {

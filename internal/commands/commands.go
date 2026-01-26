@@ -738,17 +738,17 @@ func handleActive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	
-	var m member.Member
+	var memberID int64
 	var err error
 	
 	if targetUser != nil {
-		err = dbx.GetContext(ctx, &m, `
-			SELECT * FROM roster_members 
+		err = dbx.GetContext(ctx, &memberID, `
+			SELECT id FROM roster_members 
 			WHERE discord_guild_id = ? AND discord_user_id = ?
 		`, i.GuildID, targetUser.ID)
 	} else {
-		err = dbx.GetContext(ctx, &m, `
-			SELECT * FROM roster_members 
+		err = dbx.GetContext(ctx, &memberID, `
+			SELECT id FROM roster_members 
 			WHERE discord_guild_id = ? AND family_name = ?
 		`, i.GuildID, familyName)
 	}
@@ -763,7 +763,7 @@ func handleActive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 	}
 	
 	// Set active
-	err = member.SetActive(dbx, m.ID, true)
+	err = member.SetActive(dbx, memberID, true)
 	if err != nil {
 		log.Printf("active error: %v", err)
 		discord.RespondEphemeral(s, i, "DB error marking member as active.")
