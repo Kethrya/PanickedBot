@@ -81,6 +81,7 @@ func GetByFamilyName(db *sqlx.DB, guildID, familyName string) (*Member, error) {
 }
 
 // GetByDiscordUserIDOrFamilyName retrieves a member by Discord user ID or family name
+// This is a convenience function for cases where either identifier may be provided
 func GetByDiscordUserIDOrFamilyName(db *sqlx.DB, guildID, discordUserID, familyName string) (*Member, error) {
 	if discordUserID != "" {
 		return GetByDiscordUserID(db, guildID, discordUserID)
