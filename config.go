@@ -14,9 +14,11 @@ type config struct {
 }
 
 type GuildConfig struct {
-	ResultsChannelID string `db:"results_channel_id"`
-	CommandChannelID string `db:"command_channel_id"`
-	AllowedRoleID    string `db:"allowed_role_id"`
+	OfficerRoleID      string `db:"officer_role_id"`
+	GuildMemberRoleID  string `db:"guild_member_role_id"`
+	MercenaryRoleID    string `db:"mercenary_role_id"`
+	CommandChannelID   string `db:"command_channel_id"`
+	ResultsChannelID   string `db:"results_channel_id"`
 }
 
 func loadConfigFromEnv() (config, error) {
@@ -37,7 +39,8 @@ func loadConfigFromEnv() (config, error) {
 func loadGuildConfig(db *sqlx.DB, guildID string) (*GuildConfig, error) {
 	var cfg GuildConfig
 	err := db.Get(&cfg, `
-		SELECT results_channel_id, command_channel_id, allowed_role_id
+		SELECT officer_role_id, guild_member_role_id, mercenary_role_id, 
+		       command_channel_id, results_channel_id
 		FROM config
 		WHERE discord_guild_id = ?
 	`, guildID)
