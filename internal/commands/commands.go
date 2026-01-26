@@ -102,6 +102,24 @@ func GetCommands() []*discordgo.ApplicationCommand {
 			},
 		},
 		{
+			Name:        "inactive",
+			Description: "Mark a member as inactive (officer role required)",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "member",
+					Description: "Discord member to mark as inactive",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "family_name",
+					Description: "Family name of member to mark as inactive",
+					Required:    false,
+				},
+			},
+		},
+		{
 			Name:        "updateself",
 			Description: "Update your own member information (guild member role required)",
 			Options: []*discordgo.ApplicationCommandOption{
@@ -165,24 +183,6 @@ func GetCommands() []*discordgo.ApplicationCommand {
 					Type:        discordgo.ApplicationCommandOptionBoolean,
 					Name:        "meets_cap",
 					Description: "Whether member meets required stat caps",
-					Required:    false,
-				},
-			},
-		},
-		{
-			Name:        "inactive",
-			Description: "Mark a member as inactive (officer role required)",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Type:        discordgo.ApplicationCommandOptionUser,
-					Name:        "member",
-					Description: "Discord member to mark as inactive",
-					Required:    false,
-				},
-				{
-					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "family_name",
-					Description: "Family name of member to mark as inactive",
 					Required:    false,
 				},
 			},
@@ -292,7 +292,7 @@ func handleSetup(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx
 
 	// Upsert config row
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO config (discord_guild_id, command_channel_id, results_channel_id, 
+		INSERT INTO config (discord_guild_id, command_channel_id, results_channel_id,
 		                    officer_role_id, guild_member_role_id, mercenary_role_id)
 		VALUES (?, ?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE
@@ -301,8 +301,8 @@ func handleSetup(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx
 			officer_role_id      = VALUES(officer_role_id),
 			guild_member_role_id = VALUES(guild_member_role_id),
 			mercenary_role_id    = VALUES(mercenary_role_id)
-	`, i.GuildID, commandChannelID, resultsChannelID, 
-	   internal.NullIfEmpty(officerRoleID), internal.NullIfEmpty(guildMemberRoleID), internal.NullIfEmpty(mercenaryRoleID))
+	`, i.GuildID, commandChannelID, resultsChannelID,
+		internal.NullIfEmpty(officerRoleID), internal.NullIfEmpty(guildMemberRoleID), internal.NullIfEmpty(mercenaryRoleID))
 	if err != nil {
 		discord.RespondEphemeral(s, i, "DB error writing config.")
 		return
@@ -323,11 +323,11 @@ func handleSetup(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx
 	} else {
 		msg += "\nOfficer role: (none — admin perms required for officer commands)"
 	}
-	
+
 	if guildMemberRoleID != "" {
 		msg += "\nGuild member role: <@&" + guildMemberRoleID + ">"
 	}
-	
+
 	if mercenaryRoleID != "" {
 		msg += "\nMercenary role: <@&" + mercenaryRoleID + ">"
 	}
@@ -342,7 +342,7 @@ func hasOfficerPermission(s *discordgo.Session, i *discordgo.InteractionCreate, 
 	if err == nil && ((perms&discordgo.PermissionManageGuild) != 0 || (perms&discordgo.PermissionAdministrator) != 0) {
 		return true
 	}
-	
+
 	// Check officer role if configured
 	if cfg.OfficerRoleID != "" {
 		for _, roleID := range i.Member.Roles {
@@ -351,7 +351,7 @@ func hasOfficerPermission(s *discordgo.Session, i *discordgo.InteractionCreate, 
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -360,13 +360,13 @@ func hasGuildMemberPermission(i *discordgo.InteractionCreate, cfg *internal.Guil
 	if cfg.GuildMemberRoleID == "" {
 		return false
 	}
-	
+
 	for _, roleID := range i.Member.Roles {
 		if roleID == cfg.GuildMemberRoleID {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -375,7 +375,7 @@ func handleAddTeam(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sq
 		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
 		return
 	}
-	
+
 	// Parse options
 	var teamName string
 	for _, opt := range i.ApplicationCommandData().Options {
@@ -383,23 +383,23 @@ func handleAddTeam(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sq
 			teamName = opt.StringValue()
 		}
 	}
-	
+
 	if teamName == "" {
 		discord.RespondEphemeral(s, i, "Team name is required.")
 		return
 	}
-	
+
 	// Generate code from name (lowercase, replace spaces with underscores)
 	code := strings.ToLower(strings.ReplaceAll(teamName, " ", "_"))
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	_, err := dbx.ExecContext(ctx, `
 		INSERT INTO `+"teams"+` (discord_guild_id, code, display_name, is_active)
 		VALUES (?, ?, ?, 1)
 	`, i.GuildID, code, teamName)
-	
+
 	if err != nil {
 		if strings.Contains(err.Error(), "Duplicate entry") {
 			discord.RespondEphemeral(s, i, "A team with that name already exists.")
@@ -409,7 +409,7 @@ func handleAddTeam(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sq
 		}
 		return
 	}
-	
+
 	discord.RespondText(s, i, "Team **"+teamName+"** created successfully.")
 }
 
@@ -418,7 +418,7 @@ func handleDeleteTeam(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
 		return
 	}
-	
+
 	// Parse options
 	var teamName string
 	for _, opt := range i.ApplicationCommandData().Options {
@@ -426,33 +426,33 @@ func handleDeleteTeam(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 			teamName = opt.StringValue()
 		}
 	}
-	
+
 	if teamName == "" {
 		discord.RespondEphemeral(s, i, "Team name is required.")
 		return
 	}
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	result, err := dbx.ExecContext(ctx, `
-		UPDATE `+"teams"+` 
+		UPDATE `+"teams"+`
 		SET is_active = 0
 		WHERE discord_guild_id = ? AND display_name = ? AND is_active = 1
 	`, i.GuildID, teamName)
-	
+
 	if err != nil {
 		log.Printf("delete team error: %v", err)
 		discord.RespondEphemeral(s, i, "DB error deleting team.")
 		return
 	}
-	
+
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected == 0 {
 		discord.RespondEphemeral(s, i, "Team not found or already deleted.")
 		return
 	}
-	
+
 	discord.RespondText(s, i, "Team **"+teamName+"** deleted successfully.")
 }
 
@@ -461,11 +461,11 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 		discord.RespondEphemeral(s, i, "You need guild member role to use this command.")
 		return
 	}
-	
+
 	// Parse options
 	var familyName, class, spec string
 	hasUpdates := false
-	
+
 	for _, opt := range i.ApplicationCommandData().Options {
 		switch opt.Name {
 		case "family_name":
@@ -479,12 +479,12 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 			hasUpdates = true
 		}
 	}
-	
+
 	if !hasUpdates {
 		discord.RespondEphemeral(s, i, "Please provide at least one field to update.")
 		return
 	}
-	
+
 	// Get or create member record
 	m, err := internal.GetMemberByDiscordUserID(dbx, i.GuildID, i.Member.User.ID)
 	if err == sql.ErrNoRows {
@@ -495,7 +495,7 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 			discord.RespondEphemeral(s, i, "DB error creating your member record.")
 			return
 		}
-		
+
 		// Get the newly created member
 		m, err = internal.GetMemberByDiscordUserID(dbx, i.GuildID, i.Member.User.ID)
 		if err != nil {
@@ -503,14 +503,14 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 			discord.RespondEphemeral(s, i, "DB error looking up your member record.")
 			return
 		}
-		
+
 		log.Printf("Created new member ID %d for user %s", memberID, i.Member.User.Username)
 	} else if err != nil {
 		log.Printf("updateself lookup error: %v", err)
 		discord.RespondEphemeral(s, i, "DB error looking up your member record.")
 		return
 	}
-	
+
 	// Build update fields
 	fields := internal.UpdateFields{}
 	if familyName != "" {
@@ -522,14 +522,14 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 	if spec != "" {
 		fields.Spec = &spec
 	}
-	
+
 	err = internal.UpdateMember(dbx, m.ID, fields)
 	if err != nil {
 		log.Printf("updateself error: %v", err)
 		discord.RespondEphemeral(s, i, "DB error updating your information.")
 		return
 	}
-	
+
 	discord.RespondText(s, i, "Your information has been updated successfully.")
 }
 
@@ -538,13 +538,13 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
 		return
 	}
-	
+
 	// Parse options
 	var targetUser *discordgo.User
 	var familyName, class, spec, teamName string
 	var meetsCap *bool
 	hasUpdates := false
-	
+
 	for _, opt := range i.ApplicationCommandData().Options {
 		switch opt.Name {
 		case "member":
@@ -567,17 +567,17 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 			hasUpdates = true
 		}
 	}
-	
+
 	if targetUser == nil {
 		discord.RespondEphemeral(s, i, "Member is required.")
 		return
 	}
-	
+
 	if !hasUpdates {
 		discord.RespondEphemeral(s, i, "Please provide at least one field to update.")
 		return
 	}
-	
+
 	// Get or create member record
 	m, err := internal.GetMemberByDiscordUserID(dbx, i.GuildID, targetUser.ID)
 	if err == sql.ErrNoRows {
@@ -588,7 +588,7 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 			discord.RespondEphemeral(s, i, "DB error creating member record.")
 			return
 		}
-		
+
 		// Get the newly created member
 		m, err = internal.GetMemberByDiscordUserID(dbx, i.GuildID, targetUser.ID)
 		if err != nil {
@@ -596,29 +596,29 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 			discord.RespondEphemeral(s, i, "DB error looking up member record.")
 			return
 		}
-		
+
 		log.Printf("Created new member ID %d for user %s", memberID, targetUser.Username)
 	} else if err != nil {
 		log.Printf("updatemember lookup error: %v", err)
 		discord.RespondEphemeral(s, i, "DB error looking up member record.")
 		return
 	}
-	
+
 	// Look up team ID if team name provided
 	var teamID *int64
 	if teamName != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		
+
 		var teamData struct {
 			ID       int64 `db:"id"`
 			IsActive bool  `db:"is_active"`
 		}
 		err := dbx.GetContext(ctx, &teamData, `
-			SELECT id, is_active FROM `+"teams"+` 
+			SELECT id, is_active FROM `+"teams"+`
 			WHERE discord_guild_id = ? AND display_name = ?
 		`, i.GuildID, teamName)
-		
+
 		if err == sql.ErrNoRows {
 			discord.RespondEphemeral(s, i, "Team '"+teamName+"' not found.")
 			return
@@ -627,15 +627,15 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 			discord.RespondEphemeral(s, i, "DB error looking up team.")
 			return
 		}
-		
+
 		if !teamData.IsActive {
 			discord.RespondEphemeral(s, i, "Team '"+teamName+"' is not active.")
 			return
 		}
-		
+
 		teamID = &teamData.ID
 	}
-	
+
 	// Build update fields
 	fields := internal.UpdateFields{}
 	if familyName != "" {
@@ -653,14 +653,14 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 	if meetsCap != nil {
 		fields.MeetsCap = meetsCap
 	}
-	
+
 	err = internal.UpdateMember(dbx, m.ID, fields)
 	if err != nil {
 		log.Printf("updatemember error: %v", err)
 		discord.RespondEphemeral(s, i, "DB error updating member information.")
 		return
 	}
-	
+
 	discord.RespondText(s, i, "Member information updated successfully.")
 }
 
@@ -669,11 +669,11 @@ func handleInactive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *s
 		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
 		return
 	}
-	
+
 	// Parse options
 	var targetUser *discordgo.User
 	var familyName string
-	
+
 	for _, opt := range i.ApplicationCommandData().Options {
 		switch opt.Name {
 		case "member":
@@ -682,23 +682,23 @@ func handleInactive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *s
 			familyName = opt.StringValue()
 		}
 	}
-	
+
 	// Must provide either member or family_name
 	if targetUser == nil && familyName == "" {
 		discord.RespondEphemeral(s, i, "Please provide either a Discord member or family name.")
 		return
 	}
-	
+
 	// Get member record - use functions that include inactive members
 	var m *internal.Member
 	var err error
-	
+
 	if targetUser != nil {
 		m, err = internal.GetMemberByDiscordUserIDIncludingInactive(dbx, i.GuildID, targetUser.ID)
 	} else {
 		m, err = internal.GetMemberByFamilyNameIncludingInactive(dbx, i.GuildID, familyName)
 	}
-	
+
 	if err == sql.ErrNoRows {
 		discord.RespondEphemeral(s, i, "Member not found.")
 		return
@@ -707,7 +707,7 @@ func handleInactive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *s
 		discord.RespondEphemeral(s, i, "DB error looking up member record.")
 		return
 	}
-	
+
 	// Set inactive
 	err = internal.SetMemberActive(dbx, m.ID, false)
 	if err != nil {
@@ -715,7 +715,7 @@ func handleInactive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *s
 		discord.RespondEphemeral(s, i, "DB error marking member as inactive.")
 		return
 	}
-	
+
 	discord.RespondText(s, i, "Member marked as inactive successfully.")
 }
 
@@ -724,11 +724,11 @@ func handleActive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
 		return
 	}
-	
+
 	// Parse options
 	var targetUser *discordgo.User
 	var familyName string
-	
+
 	for _, opt := range i.ApplicationCommandData().Options {
 		switch opt.Name {
 		case "member":
@@ -737,23 +737,23 @@ func handleActive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 			familyName = opt.StringValue()
 		}
 	}
-	
+
 	// Must provide either member or family_name
 	if targetUser == nil && familyName == "" {
 		discord.RespondEphemeral(s, i, "Please provide either a Discord member or family name.")
 		return
 	}
-	
+
 	// Get member record - use functions that include inactive members
 	var m *internal.Member
 	var err error
-	
+
 	if targetUser != nil {
 		m, err = internal.GetMemberByDiscordUserIDIncludingInactive(dbx, i.GuildID, targetUser.ID)
 	} else {
 		m, err = internal.GetMemberByFamilyNameIncludingInactive(dbx, i.GuildID, familyName)
 	}
-	
+
 	if err == sql.ErrNoRows {
 		discord.RespondEphemeral(s, i, "Member not found.")
 		return
@@ -762,7 +762,7 @@ func handleActive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 		discord.RespondEphemeral(s, i, "DB error looking up member record.")
 		return
 	}
-	
+
 	// Set active
 	err = internal.SetMemberActive(dbx, m.ID, true)
 	if err != nil {
@@ -770,7 +770,7 @@ func handleActive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 		discord.RespondEphemeral(s, i, "DB error marking member as active.")
 		return
 	}
-	
+
 	discord.RespondText(s, i, "Member marked as active successfully.")
 }
 
@@ -779,7 +779,7 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
 		return
 	}
-	
+
 	// Get all roster members
 	members, err := internal.GetAllRosterMembers(dbx, i.GuildID)
 	if err != nil {
@@ -787,27 +787,30 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 		discord.RespondEphemeral(s, i, "DB error retrieving roster members.")
 		return
 	}
-	
+
 	if len(members) == 0 {
 		discord.RespondEphemeral(s, i, "No active roster members found.")
 		return
 	}
-	
+
 	// Build response message with aligned columns
 	var response strings.Builder
 	response.WriteString("**Guild Roster Members**\n```\n")
-	
+
 	// Header
-	response.WriteString(fmt.Sprintf("%-20s %-20s %-15s %-12s\n", "BDO Name", "Family Name", "Class", "Spec"))
+	response.WriteString(fmt.Sprintf("%-20s %-20s %-15s %-12s\n", "Name", "Family Name", "Class", "Spec"))
 	response.WriteString(strings.Repeat("-", 70) + "\n")
-	
+
 	// Data rows
 	for _, member := range members {
-		bdoName := member.BDOName
-		if len(bdoName) > 20 {
-			bdoName = bdoName[:17] + "..."
+		discordName := ""
+		if member.DiscordUserID != nil && *member.DiscordUserID != "" {
+			discordName := *member.DiscordUserID
+			if len(discordName) > 20 {
+				discordName = discordName[:17] + "..."
+			}
 		}
-		
+
 		familyName := ""
 		if member.FamilyName != nil && *member.FamilyName != "" {
 			familyName = *member.FamilyName
@@ -815,7 +818,7 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 				familyName = familyName[:17] + "..."
 			}
 		}
-		
+
 		class := ""
 		if member.Class != nil && *member.Class != "" {
 			class = *member.Class
@@ -823,7 +826,7 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 				class = class[:12] + "..."
 			}
 		}
-		
+
 		spec := ""
 		if member.Spec != nil && *member.Spec != "" {
 			spec = *member.Spec
@@ -831,27 +834,30 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 				spec = spec[:9] + "..."
 			}
 		}
-		
-		response.WriteString(fmt.Sprintf("%-20s %-20s %-15s %-12s\n", bdoName, familyName, class, spec))
+
+		response.WriteString(fmt.Sprintf("%-20s %-20s %-15s %-12s\n", discordName, familyName, class, spec))
 	}
-	
+
 	response.WriteString("```")
-	
+
 	// Discord has a 2000 character limit for messages
 	responseText := response.String()
 	if len(responseText) > 2000 {
 		// If too long, show fewer rows
 		var truncatedResponse strings.Builder
 		truncatedResponse.WriteString("**Guild Roster Members** (showing first entries)\n```\n")
-		truncatedResponse.WriteString(fmt.Sprintf("%-20s %-20s %-15s %-12s\n", "BDO Name", "Family Name", "Class", "Spec"))
+		truncatedResponse.WriteString(fmt.Sprintf("%-20s %-20s %-15s %-12s\n", "Name", "Family Name", "Class", "Spec"))
 		truncatedResponse.WriteString(strings.Repeat("-", 70) + "\n")
-		
+
 		for _, member := range members {
-			bdoName := member.BDOName
-			if len(bdoName) > 20 {
-				bdoName = bdoName[:17] + "..."
+			discordName := ""
+			if member.DiscordUserID != nil && *member.DiscordUserID != "" {
+				discordName := *member.DiscordUserID
+				if len(discordName) > 20 {
+					discordName = discordName[:17] + "..."
+				}
 			}
-			
+
 			familyName := ""
 			if member.FamilyName != nil && *member.FamilyName != "" {
 				familyName = *member.FamilyName
@@ -859,7 +865,7 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 					familyName = familyName[:17] + "..."
 				}
 			}
-			
+
 			class := ""
 			if member.Class != nil && *member.Class != "" {
 				class = *member.Class
@@ -867,7 +873,7 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 					class = class[:12] + "..."
 				}
 			}
-			
+
 			spec := ""
 			if member.Spec != nil && *member.Spec != "" {
 				spec = *member.Spec
@@ -875,8 +881,8 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 					spec = spec[:9] + "..."
 				}
 			}
-			
-			line := fmt.Sprintf("%-20s %-20s %-15s %-12s\n", bdoName, familyName, class, spec)
+
+			line := fmt.Sprintf("%-20s %-20s %-15s %-12s\n", discordName, familyName, class, spec)
 			if len(truncatedResponse.String()+line+"```") > 1990 {
 				break
 			}
