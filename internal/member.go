@@ -155,6 +155,23 @@ func UpdateMember(db *sqlx.DB, memberID int64, fields UpdateFields) error {
 	return err
 }
 
+// CreateMember creates a new roster member
+func CreateMember(db *sqlx.DB, guildID, discordUserID, bdoName string) (int64, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	result, err := db.ExecContext(ctx, `
+		INSERT INTO roster_members (discord_guild_id, discord_user_id, bdo_name, is_active)
+		VALUES (?, ?, ?, 1)
+	`, guildID, discordUserID, bdoName)
+	
+	if err != nil {
+		return 0, err
+	}
+	
+	return result.LastInsertId()
+}
+
 // SetMemberActive sets the is_active flag for a member
 func SetMemberActive(db *sqlx.DB, memberID int64, active bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

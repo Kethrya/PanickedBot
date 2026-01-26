@@ -77,7 +77,7 @@ func GetCommands() []*discordgo.ApplicationCommand {
 		{Name: "ping", Description: "health check"},
 		setupCommand(),
 		{
-			Name:        "addgroup",
+			Name:        "addteam",
 			Description: "Add a new team (officer role required)",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
@@ -480,11 +480,26 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 		return
 	}
 	
-	// Get member record
+	// Get or create member record
 	m, err := internal.GetMemberByDiscordUserID(dbx, i.GuildID, i.Member.User.ID)
 	if err == sql.ErrNoRows {
-		discord.RespondEphemeral(s, i, "You are not registered as a guild member yet. Contact an officer to add you.")
-		return
+		// Create new member - use Discord username as default BDO name
+		memberID, err := internal.CreateMember(dbx, i.GuildID, i.Member.User.ID, i.Member.User.Username)
+		if err != nil {
+			log.Printf("updateself create error: %v", err)
+			discord.RespondEphemeral(s, i, "DB error creating your member record.")
+			return
+		}
+		
+		// Get the newly created member
+		m, err = internal.GetMemberByDiscordUserID(dbx, i.GuildID, i.Member.User.ID)
+		if err != nil {
+			log.Printf("updateself lookup after create error: %v", err)
+			discord.RespondEphemeral(s, i, "DB error looking up your member record.")
+			return
+		}
+		
+		log.Printf("Created new member ID %d for user %s", memberID, i.Member.User.Username)
 	} else if err != nil {
 		log.Printf("updateself lookup error: %v", err)
 		discord.RespondEphemeral(s, i, "DB error looking up your member record.")
@@ -558,11 +573,26 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 		return
 	}
 	
-	// Get member record
+	// Get or create member record
 	m, err := internal.GetMemberByDiscordUserID(dbx, i.GuildID, targetUser.ID)
 	if err == sql.ErrNoRows {
-		discord.RespondEphemeral(s, i, "That user is not registered as a guild member yet.")
-		return
+		// Create new member - use Discord username as default BDO name
+		memberID, err := internal.CreateMember(dbx, i.GuildID, targetUser.ID, targetUser.Username)
+		if err != nil {
+			log.Printf("updatemember create error: %v", err)
+			discord.RespondEphemeral(s, i, "DB error creating member record.")
+			return
+		}
+		
+		// Get the newly created member
+		m, err = internal.GetMemberByDiscordUserID(dbx, i.GuildID, targetUser.ID)
+		if err != nil {
+			log.Printf("updatemember lookup after create error: %v", err)
+			discord.RespondEphemeral(s, i, "DB error looking up member record.")
+			return
+		}
+		
+		log.Printf("Created new member ID %d for user %s", memberID, targetUser.Username)
 	} else if err != nil {
 		log.Printf("updatemember lookup error: %v", err)
 		discord.RespondEphemeral(s, i, "DB error looking up member record.")
