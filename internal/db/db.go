@@ -56,4 +56,3 @@ func Open(cfg Config) (*sqlx.DB, error) {
 
 	return db, nil
 }
-
