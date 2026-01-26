@@ -10,11 +10,14 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 
+	"PanickedBot/internal/commands"
+	"PanickedBot/internal/config"
 	"PanickedBot/internal/db"
+	"PanickedBot/internal/guild"
 )
 
 func main() {
-	cfg, err := loadConfigFromEnv()
+	cfg, err := config.LoadFromEnv()
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -40,9 +43,9 @@ func main() {
 	}
 	dg.Identify.Intents = discordgo.IntentsGuilds
 
-	commands := getCommands()
+	cmds := commands.GetCommands()
 
-	dg.AddHandler(createInteractionHandler(database))
+	dg.AddHandler(commands.CreateInteractionHandler(database))
 
 	if err := dg.Open(); err != nil {
 		log.Fatalf("discord open: %v", err)
@@ -51,8 +54,8 @@ func main() {
 
 	appID := dg.State.User.ID
 
-	registered := make([]*discordgo.ApplicationCommand, 0, len(commands))
-	for _, cmd := range commands {
+	registered := make([]*discordgo.ApplicationCommand, 0, len(cmds))
+	for _, cmd := range cmds {
 		rc, err := dg.ApplicationCommandCreate(appID, "", cmd)
 		if err != nil {
 			log.Fatalf("command create (%s): %v", cmd.Name, err)
@@ -61,7 +64,7 @@ func main() {
 		log.Printf("registered global /%s", cmd.Name)
 	}
 
-	if err := ensureGuildRows(database, dg.State.Guilds); err != nil {
+	if err := guild.EnsureGuildRows(database, dg.State.Guilds); err != nil {
 		log.Printf("bootstrap guild rows warning: %v", err)
 	}
 
