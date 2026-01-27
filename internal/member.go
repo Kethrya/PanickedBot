@@ -18,7 +18,6 @@ type Member struct {
 	FamilyName     *string `db:"family_name"`
 	Class          *string `db:"class"`
 	Spec           *string `db:"spec"`
-	TeamID         *int64  `db:"team_id"`
 	
 	// Combat stats
 	AP       *int     `db:"ap"`
@@ -43,8 +42,11 @@ type UpdateFields struct {
 	FamilyName *string
 	Class      *string
 	Spec       *string
-	TeamID     *int64
+	TeamIDs    []int64 // For multiple team assignments
 	MeetsCap   *bool
+	AP         *int
+	AAP        *int
+	DP         *int
 }
 
 // GetMemberByDiscordUserID retrieves a member by Discord user ID
@@ -52,7 +54,7 @@ func GetMemberByDiscordUserID(db *sqlx.DB, guildID, userID string) (*Member, err
 	var m Member
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
-		       class, spec, team_id, ap, aap, dp, evasion, dr, drr, 
+		       class, spec, ap, aap, dp, evasion, dr, drr, 
 		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
 		FROM roster_members 
 		WHERE discord_guild_id = ? AND discord_user_id = ? AND is_active = 1
@@ -68,7 +70,7 @@ func GetMemberByFamilyName(db *sqlx.DB, guildID, familyName string) (*Member, er
 	var m Member
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
-		       class, spec, team_id, ap, aap, dp, evasion, dr, drr, 
+		       class, spec, ap, aap, dp, evasion, dr, drr, 
 		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
 		FROM roster_members 
 		WHERE discord_guild_id = ? AND family_name = ? AND is_active = 1
@@ -84,7 +86,7 @@ func GetMemberByDiscordUserIDIncludingInactive(db *sqlx.DB, guildID, userID stri
 	var m Member
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
-		       class, spec, team_id, ap, aap, dp, evasion, dr, drr, 
+		       class, spec, ap, aap, dp, evasion, dr, drr, 
 		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
 		FROM roster_members 
 		WHERE discord_guild_id = ? AND discord_user_id = ?
@@ -100,7 +102,7 @@ func GetMemberByFamilyNameIncludingInactive(db *sqlx.DB, guildID, familyName str
 	var m Member
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
-		       class, spec, team_id, ap, aap, dp, evasion, dr, drr, 
+		       class, spec, ap, aap, dp, evasion, dr, drr, 
 		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
 		FROM roster_members 
 		WHERE discord_guild_id = ? AND family_name = ?
@@ -112,6 +114,7 @@ func GetMemberByFamilyNameIncludingInactive(db *sqlx.DB, guildID, familyName str
 }
 
 // UpdateMember updates member fields
+// Note: TeamIDs is handled separately via AssignMemberToTeams and is not processed here
 func UpdateMember(db *sqlx.DB, memberID int64, fields UpdateFields) error {
 	updates := []string{}
 	args := []interface{}{}
@@ -128,13 +131,21 @@ func UpdateMember(db *sqlx.DB, memberID int64, fields UpdateFields) error {
 		updates = append(updates, "spec = ?")
 		args = append(args, *fields.Spec)
 	}
-	if fields.TeamID != nil {
-		updates = append(updates, "team_id = ?")
-		args = append(args, *fields.TeamID)
-	}
 	if fields.MeetsCap != nil {
 		updates = append(updates, "meets_cap = ?")
 		args = append(args, *fields.MeetsCap)
+	}
+	if fields.AP != nil {
+		updates = append(updates, "ap = ?")
+		args = append(args, *fields.AP)
+	}
+	if fields.AAP != nil {
+		updates = append(updates, "aap = ?")
+		args = append(args, *fields.AAP)
+	}
+	if fields.DP != nil {
+		updates = append(updates, "dp = ?")
+		args = append(args, *fields.DP)
 	}
 	
 	if len(updates) == 0 {
@@ -191,7 +202,7 @@ func GetAllRosterMembers(db *sqlx.DB, guildID string) ([]Member, error) {
 	var members []Member
 	err := db.Select(&members, `
 		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
-		       class, spec, team_id, ap, aap, dp, evasion, dr, drr, 
+		       class, spec, ap, aap, dp, evasion, dr, drr, 
 		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
 		FROM roster_members 
 		WHERE discord_guild_id = ? AND is_active = 1
@@ -201,4 +212,76 @@ func GetAllRosterMembers(db *sqlx.DB, guildID string) ([]Member, error) {
 		return nil, err
 	}
 	return members, nil
+}
+
+// AssignMemberToTeams assigns a member to multiple teams (replaces all existing team assignments)
+func AssignMemberToTeams(db *sqlx.DB, memberID int64, teamIDs []int64) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Remove all existing team assignments
+	_, err = tx.ExecContext(ctx, `
+		DELETE FROM member_teams
+		WHERE roster_member_id = ?
+	`, memberID)
+	if err != nil {
+		return err
+	}
+
+	// Add new team assignments
+	if len(teamIDs) > 0 {
+		for _, teamID := range teamIDs {
+			_, err = tx.ExecContext(ctx, `
+				INSERT INTO member_teams (roster_member_id, team_id)
+				VALUES (?, ?)
+			`, memberID, teamID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit()
+}
+
+// GetMemberTeamIDs retrieves all team IDs for a member
+func GetMemberTeamIDs(db *sqlx.DB, memberID int64) ([]int64, error) {
+	var teamIDs []int64
+	err := db.Select(&teamIDs, `
+		SELECT team_id
+		FROM member_teams
+		WHERE roster_member_id = ?
+		ORDER BY assigned_at
+	`, memberID)
+	if err != nil {
+		return nil, err
+	}
+	return teamIDs, nil
+}
+
+// GetMemberTeamNames retrieves team names for a member as a comma-separated string
+func GetMemberTeamNames(db *sqlx.DB, guildID string, memberID int64) (string, error) {
+	var teamNames []string
+	err := db.Select(&teamNames, `
+		SELECT t.display_name
+		FROM member_teams mt
+		JOIN teams t ON mt.team_id = t.id
+		WHERE mt.roster_member_id = ? 
+		  AND t.discord_guild_id = ?
+		  AND t.is_active = 1
+		ORDER BY mt.assigned_at
+	`, memberID, guildID)
+	if err != nil {
+		return "", err
+	}
+	if len(teamNames) == 0 {
+		return "", nil
+	}
+	return strings.Join(teamNames, ", "), nil
 }

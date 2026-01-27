@@ -20,7 +20,6 @@ type GuildConfig struct {
 	GuildMemberRoleID string `db:"guild_member_role_id"`
 	MercenaryRoleID   string `db:"mercenary_role_id"`
 	CommandChannelID  string `db:"command_channel_id"`
-	ResultsChannelID  string `db:"results_channel_id"`
 }
 
 // LoadConfigFromEnv loads configuration from environment variables
@@ -44,7 +43,7 @@ func LoadGuildConfig(db *sqlx.DB, guildID string) (*GuildConfig, error) {
 	var cfg GuildConfig
 	err := db.Get(&cfg, `
 		SELECT officer_role_id, guild_member_role_id, mercenary_role_id, 
-		       command_channel_id, results_channel_id
+		       command_channel_id
 		FROM config
 		WHERE discord_guild_id = ?
 	`, guildID)

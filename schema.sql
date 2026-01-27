@@ -22,8 +22,7 @@ CREATE TABLE IF NOT EXISTS config (
   officer_role_id       VARCHAR(32) NULL COMMENT 'Role required to manage other members information, add/update wars, etc.',
   guild_member_role_id  VARCHAR(32) NULL COMMENT 'Role required for a member to update their own information',
   mercenary_role_id     VARCHAR(32) NULL COMMENT 'Role for mercenary members',
-  command_channel_id    VARCHAR(32) NULL COMMENT 'Channel where commands are allowed',
-  results_channel_id    VARCHAR(32) NULL COMMENT 'Channel where results will be posted',
+  command_channel_id    VARCHAR(32) NULL COMMENT 'Channel where commands and results are posted',
   timezone              VARCHAR(64) NOT NULL DEFAULT 'America/New_York',
   updated_at            DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   PRIMARY KEY (discord_guild_id),
@@ -204,6 +203,28 @@ CREATE TABLE IF NOT EXISTS member_exceptions (
     ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_exceptions_member
     FOREIGN KEY (roster_member_id) REFERENCES roster_members(id)
+    ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================================
+-- Member-Team Assignments (Many-to-Many)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS member_teams (
+  id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  roster_member_id  BIGINT UNSIGNED NOT NULL,
+  team_id           BIGINT UNSIGNED NOT NULL,
+  assigned_at       DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_member_teams (roster_member_id, team_id),
+  KEY idx_member_teams_member (roster_member_id),
+  KEY idx_member_teams_team (team_id),
+  CONSTRAINT fk_member_teams_member
+    FOREIGN KEY (roster_member_id) REFERENCES roster_members(id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_member_teams_team
+    FOREIGN KEY (team_id) REFERENCES teams(id)
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
