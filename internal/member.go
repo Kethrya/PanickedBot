@@ -116,6 +116,7 @@ func GetMemberByFamilyNameIncludingInactive(db *sqlx.DB, guildID, familyName str
 }
 
 // UpdateMember updates member fields
+// Note: TeamIDs is handled separately via AssignMemberToTeams and is not processed here
 func UpdateMember(db *sqlx.DB, memberID int64, fields UpdateFields) error {
 	updates := []string{}
 	args := []interface{}{}
