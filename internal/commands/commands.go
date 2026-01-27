@@ -206,7 +206,7 @@ func GetCommands() []*discordgo.ApplicationCommand {
 			},
 		},
 		{
-			Name:        "getroster",
+			Name:        "roster",
 			Description: "Get all roster member information (officer role required)",
 		},
 	}
@@ -273,7 +273,7 @@ func handleSetup(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx
 
 	tx, err := dbx.BeginTxx(ctx, nil)
 	if err != nil {
-		discord.RespondEphemeral(s, i, "DB error starting transaction.")
+		discord.RespondEphemeral(s, i, "Failed to save configuration. Please try again.")
 		return
 	}
 	defer func() { _ = tx.Rollback() }()
@@ -286,7 +286,7 @@ func handleSetup(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx
 			name = COALESCE(VALUES(name), name)
 	`, i.GuildID, internal.NullIfEmpty(guildName))
 	if err != nil {
-		discord.RespondEphemeral(s, i, "DB error writing internal.")
+		discord.RespondEphemeral(s, i, "Failed to save configuration. Please try again.")
 		return
 	}
 
@@ -304,12 +304,12 @@ func handleSetup(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx
 	`, i.GuildID, commandChannelID, resultsChannelID,
 		internal.NullIfEmpty(officerRoleID), internal.NullIfEmpty(guildMemberRoleID), internal.NullIfEmpty(mercenaryRoleID))
 	if err != nil {
-		discord.RespondEphemeral(s, i, "DB error writing config.")
+		discord.RespondEphemeral(s, i, "Failed to save configuration. Please try again.")
 		return
 	}
 
 	if err := tx.Commit(); err != nil {
-		discord.RespondEphemeral(s, i, "DB error committing config.")
+		discord.RespondEphemeral(s, i, "Failed to save configuration. Please try again.")
 		return
 	}
 
@@ -395,18 +395,54 @@ func handleAddTeam(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sq
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := dbx.ExecContext(ctx, `
+	// Check if team already exists
+	var existingTeam struct {
+		ID       int64 `db:"id"`
+		IsActive bool  `db:"is_active"`
+	}
+	err := dbx.GetContext(ctx, &existingTeam, `
+		SELECT id, is_active FROM `+"teams"+`
+		WHERE discord_guild_id = ? AND (code = ? OR display_name = ?)
+	`, i.GuildID, code, teamName)
+
+	if err == nil {
+		// Team exists - check if it's inactive
+		if !existingTeam.IsActive {
+			// Reactivate the team
+			_, err := dbx.ExecContext(ctx, `
+				UPDATE `+"teams"+`
+				SET is_active = 1
+				WHERE id = ?
+			`, existingTeam.ID)
+			
+			if err != nil {
+				log.Printf("reactivate team error: %v", err)
+				discord.RespondEphemeral(s, i, "Failed to reactivate team. Please try again.")
+				return
+			}
+			
+			discord.RespondText(s, i, "Team **"+teamName+"** reactivated successfully.")
+			return
+		} else {
+			// Team is already active
+			discord.RespondEphemeral(s, i, "A team with that name already exists and is active.")
+			return
+		}
+	} else if err != sql.ErrNoRows {
+		log.Printf("check existing team error: %v", err)
+		discord.RespondEphemeral(s, i, "Failed to create team. Please try again.")
+		return
+	}
+
+	// Team doesn't exist - create it
+	_, err = dbx.ExecContext(ctx, `
 		INSERT INTO `+"teams"+` (discord_guild_id, code, display_name, is_active)
 		VALUES (?, ?, ?, 1)
 	`, i.GuildID, code, teamName)
 
 	if err != nil {
-		if strings.Contains(err.Error(), "Duplicate entry") {
-			discord.RespondEphemeral(s, i, "A team with that name already exists.")
-		} else {
-			log.Printf("add team error: %v", err)
-			discord.RespondEphemeral(s, i, "DB error creating team.")
-		}
+		log.Printf("add team error: %v", err)
+		discord.RespondEphemeral(s, i, "Failed to create team. Please try again.")
 		return
 	}
 
@@ -443,7 +479,7 @@ func handleDeleteTeam(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 
 	if err != nil {
 		log.Printf("delete team error: %v", err)
-		discord.RespondEphemeral(s, i, "DB error deleting team.")
+		discord.RespondEphemeral(s, i, "Failed to delete team. Please try again.")
 		return
 	}
 
@@ -492,7 +528,7 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 		memberID, err := internal.CreateMember(dbx, i.GuildID, i.Member.User.ID, i.Member.User.Username)
 		if err != nil {
 			log.Printf("updateself create error: %v", err)
-			discord.RespondEphemeral(s, i, "DB error creating your member record.")
+			discord.RespondEphemeral(s, i, "Failed to create your member record. Please try again.")
 			return
 		}
 
@@ -500,14 +536,14 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 		m, err = internal.GetMemberByDiscordUserID(dbx, i.GuildID, i.Member.User.ID)
 		if err != nil {
 			log.Printf("updateself lookup after create error: %v", err)
-			discord.RespondEphemeral(s, i, "DB error looking up your member record.")
+			discord.RespondEphemeral(s, i, "Failed to update your information. Please try again.")
 			return
 		}
 
 		log.Printf("Created new member ID %d for user %s", memberID, i.Member.User.Username)
 	} else if err != nil {
 		log.Printf("updateself lookup error: %v", err)
-		discord.RespondEphemeral(s, i, "DB error looking up your member record.")
+		discord.RespondEphemeral(s, i, "Failed to update your information. Please try again.")
 		return
 	}
 
@@ -526,7 +562,7 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 	err = internal.UpdateMember(dbx, m.ID, fields)
 	if err != nil {
 		log.Printf("updateself error: %v", err)
-		discord.RespondEphemeral(s, i, "DB error updating your information.")
+		discord.RespondEphemeral(s, i, "Failed to update your information. Please try again.")
 		return
 	}
 
@@ -585,7 +621,7 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 		memberID, err := internal.CreateMember(dbx, i.GuildID, targetUser.ID, targetUser.Username)
 		if err != nil {
 			log.Printf("updatemember create error: %v", err)
-			discord.RespondEphemeral(s, i, "DB error creating member record.")
+			discord.RespondEphemeral(s, i, "Failed to create member record. Please try again.")
 			return
 		}
 
@@ -593,14 +629,14 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 		m, err = internal.GetMemberByDiscordUserID(dbx, i.GuildID, targetUser.ID)
 		if err != nil {
 			log.Printf("updatemember lookup after create error: %v", err)
-			discord.RespondEphemeral(s, i, "DB error looking up member record.")
+			discord.RespondEphemeral(s, i, "Failed to update member information. Please try again.")
 			return
 		}
 
 		log.Printf("Created new member ID %d for user %s", memberID, targetUser.Username)
 	} else if err != nil {
 		log.Printf("updatemember lookup error: %v", err)
-		discord.RespondEphemeral(s, i, "DB error looking up member record.")
+		discord.RespondEphemeral(s, i, "Failed to update member information. Please try again.")
 		return
 	}
 
@@ -624,7 +660,7 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 			return
 		} else if err != nil {
 			log.Printf("updatemember team lookup error: %v", err)
-			discord.RespondEphemeral(s, i, "DB error looking up team.")
+			discord.RespondEphemeral(s, i, "Failed to update member information. Please try again.")
 			return
 		}
 
@@ -657,7 +693,7 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 	err = internal.UpdateMember(dbx, m.ID, fields)
 	if err != nil {
 		log.Printf("updatemember error: %v", err)
-		discord.RespondEphemeral(s, i, "DB error updating member information.")
+		discord.RespondEphemeral(s, i, "Failed to update member information. Please try again.")
 		return
 	}
 
@@ -704,7 +740,7 @@ func handleInactive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *s
 		return
 	} else if err != nil {
 		log.Printf("inactive lookup error: %v", err)
-		discord.RespondEphemeral(s, i, "DB error looking up member record.")
+		discord.RespondEphemeral(s, i, "Failed to mark member as inactive. Please try again.")
 		return
 	}
 
@@ -712,7 +748,7 @@ func handleInactive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *s
 	err = internal.SetMemberActive(dbx, m.ID, false)
 	if err != nil {
 		log.Printf("inactive error: %v", err)
-		discord.RespondEphemeral(s, i, "DB error marking member as inactive.")
+		discord.RespondEphemeral(s, i, "Failed to mark member as inactive. Please try again.")
 		return
 	}
 
@@ -759,7 +795,7 @@ func handleActive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 		return
 	} else if err != nil {
 		log.Printf("active lookup error: %v", err)
-		discord.RespondEphemeral(s, i, "DB error looking up member record.")
+		discord.RespondEphemeral(s, i, "Failed to mark member as active. Please try again.")
 		return
 	}
 
@@ -767,7 +803,7 @@ func handleActive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 	err = internal.SetMemberActive(dbx, m.ID, true)
 	if err != nil {
 		log.Printf("active error: %v", err)
-		discord.RespondEphemeral(s, i, "DB error marking member as active.")
+		discord.RespondEphemeral(s, i, "Failed to mark member as active. Please try again.")
 		return
 	}
 
@@ -784,7 +820,7 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 	members, err := internal.GetAllRosterMembers(dbx, i.GuildID)
 	if err != nil {
 		log.Printf("getroster error: %v", err)
-		discord.RespondEphemeral(s, i, "DB error retrieving roster members.")
+		discord.RespondEphemeral(s, i, "Failed to retrieve roster members. Please try again.")
 		return
 	}
 
@@ -921,7 +957,7 @@ func CreateInteractionHandler(database *sqlx.DB) func(s *discordgo.Session, i *d
 				return
 			}
 			log.Printf("load guild config: %v", err)
-			discord.RespondEphemeral(s, i, "Internal error loading guild config.")
+			discord.RespondEphemeral(s, i, "Failed to load guild configuration. Please try again.")
 			return
 		}
 
@@ -940,7 +976,7 @@ func CreateInteractionHandler(database *sqlx.DB) func(s *discordgo.Session, i *d
 		case "ping":
 			discord.RespondText(s, i, "pong")
 
-		case "addgroup":
+		case "addteam":
 			handleAddTeam(s, i, database, cfg)
 
 		case "deleteteam":
@@ -958,7 +994,7 @@ func CreateInteractionHandler(database *sqlx.DB) func(s *discordgo.Session, i *d
 		case "active":
 			handleActive(s, i, database, cfg)
 
-		case "getroster":
+		case "roster":
 			handleGetRoster(s, i, database, cfg)
 
 		default:
