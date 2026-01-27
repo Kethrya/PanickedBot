@@ -186,6 +186,18 @@ func GetCommands() []*discordgo.ApplicationCommand {
 			Name:        "warstats",
 			Description: "Get war statistics for all roster members (officer role required)",
 		},
+		{
+			Name:        "addwar",
+			Description: "Import war data from a CSV file (officer role required)",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionAttachment,
+					Name:        "csv_file",
+					Description: "CSV file with war data (first line: date YYYY-mm-dd, rest: family_name,kills,deaths)",
+					Required:    true,
+				},
+			},
+		},
 	}
 }
 
@@ -260,6 +272,9 @@ func CreateInteractionHandler(database *sqlx.DB) func(s *discordgo.Session, i *d
 
 		case "warstats":
 			handleWarStats(s, i, database, cfg)
+
+		case "addwar":
+			handleAddWar(s, i, database, cfg)
 
 		default:
 			discord.RespondEphemeral(s, i, "Unknown command.")
