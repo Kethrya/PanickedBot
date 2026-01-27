@@ -46,6 +46,9 @@ type UpdateFields struct {
 	TeamID     *int64
 	TeamIDs    []int64 // For multiple team assignments
 	MeetsCap   *bool
+	AP         *int
+	AAP        *int
+	DP         *int
 }
 
 // GetMemberByDiscordUserID retrieves a member by Discord user ID
@@ -136,6 +139,18 @@ func UpdateMember(db *sqlx.DB, memberID int64, fields UpdateFields) error {
 	if fields.MeetsCap != nil {
 		updates = append(updates, "meets_cap = ?")
 		args = append(args, *fields.MeetsCap)
+	}
+	if fields.AP != nil {
+		updates = append(updates, "ap = ?")
+		args = append(args, *fields.AP)
+	}
+	if fields.AAP != nil {
+		updates = append(updates, "aap = ?")
+		args = append(args, *fields.AAP)
+	}
+	if fields.DP != nil {
+		updates = append(updates, "dp = ?")
+		args = append(args, *fields.DP)
 	}
 	
 	if len(updates) == 0 {
