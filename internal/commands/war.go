@@ -153,9 +153,9 @@ func createWarFromCSV(db *sqlx.DB, guildID string, requestChannelID string, requ
 		if err == sql.ErrNoRows {
 			// Roster member doesn't exist - create one
 			result, err := tx.ExecContext(ctx, `
-				INSERT INTO roster_members (discord_guild_id, bdo_name, family_name, is_active)
-				VALUES (?, ?, ?, 1)
-			`, guildID, line.FamilyName, line.FamilyName)
+				INSERT INTO roster_members (discord_guild_id, family_name, is_active)
+				VALUES (?, ?, 1)
+			`, guildID, line.FamilyName)
 			if err != nil {
 				return fmt.Errorf("failed to create roster member for '%s': %w", line.FamilyName, err)
 			}
@@ -218,6 +218,13 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 		return
 	}
 	
+	// Check file size (limit to 10MB)
+	const maxFileSize = 10 * 1024 * 1024 // 10 MB
+	if attachment.Size > maxFileSize {
+		discord.RespondEphemeral(s, i, "File size exceeds 10MB limit.")
+		return
+	}
+	
 	// Validate that the URL is from Discord's CDN
 	if !strings.HasPrefix(attachment.URL, "https://cdn.discordapp.com/") && 
 	   !strings.HasPrefix(attachment.URL, "https://media.discordapp.net/") {
@@ -226,8 +233,23 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 		return
 	}
 	
+	// Create HTTP client with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	
+	req, err := http.NewRequestWithContext(ctx, "GET", attachment.URL, nil)
+	if err != nil {
+		log.Printf("addwar request creation error: %v", err)
+		discord.RespondEphemeral(s, i, "Failed to download the CSV file. Please try again.")
+		return
+	}
+	
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	
 	// Download the file
-	resp, err := http.Get(attachment.URL)
+	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("addwar download error: %v", err)
 		discord.RespondEphemeral(s, i, "Failed to download the CSV file. Please try again.")
@@ -241,11 +263,19 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 		return
 	}
 	
+	// Limit the response body size as an additional safety measure
+	limitedReader := io.LimitReader(resp.Body, maxFileSize)
+	
 	// Parse the CSV
-	warDate, warLines, err := parseWarCSV(resp.Body)
+	warDate, warLines, err := parseWarCSV(limitedReader)
 	if err != nil {
 		log.Printf("addwar parse error: %v", err)
-		discord.RespondEphemeral(s, i, fmt.Sprintf("Failed to parse CSV file: %s", err.Error()))
+		// Truncate error message to avoid exposing too much detail
+		errMsg := err.Error()
+		if len(errMsg) > 200 {
+			errMsg = errMsg[:200] + "..."
+		}
+		discord.RespondEphemeral(s, i, fmt.Sprintf("Failed to parse CSV file: %s", errMsg))
 		return
 	}
 	
