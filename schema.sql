@@ -59,11 +59,10 @@ CREATE TABLE IF NOT EXISTS roster_members (
   id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   discord_guild_id  VARCHAR(32) NOT NULL,
   discord_user_id   VARCHAR(32) NULL COMMENT 'Discord user ID for this member',
-  bdo_name          VARCHAR(128) NOT NULL,
-  family_name       VARCHAR(128) NULL,
+  family_name       VARCHAR(128) NOT NULL COMMENT 'BDO family name',
+  display_name      VARCHAR(128) NULL COMMENT 'Cached Discord display name',
   class             VARCHAR(64) NULL COMMENT 'BDO class name',
   spec              VARCHAR(32) NULL COMMENT 'Class specialization: succession, awakening, or ascension',
-  team_id           BIGINT UNSIGNED NULL,
   
   -- Combat stats
   ap                INT UNSIGNED NULL COMMENT 'Attack Power',
@@ -85,16 +84,12 @@ CREATE TABLE IF NOT EXISTS roster_members (
   updated_at        DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   
   PRIMARY KEY (id),
-  UNIQUE KEY uq_roster_guild_name (discord_guild_id, bdo_name),
+  UNIQUE KEY uq_roster_guild_family (discord_guild_id, family_name),
   KEY idx_roster_guild_active (discord_guild_id, is_active),
   KEY idx_roster_discord_user (discord_user_id),
-  KEY idx_roster_team (team_id),
   CONSTRAINT fk_roster_guild
     FOREIGN KEY (discord_guild_id) REFERENCES guilds(discord_guild_id)
-    ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_roster_team
-    FOREIGN KEY (team_id) REFERENCES teams(id)
-    ON DELETE SET NULL ON UPDATE CASCADE
+    ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
@@ -168,20 +163,15 @@ CREATE TABLE IF NOT EXISTS war_lines (
   match_confidence DECIMAL(5,4) NULL,
   class            VARCHAR(64) NULL COMMENT 'BDO class name',
   spec             VARCHAR(32) NULL COMMENT 'Class specialization',
-  team_id          BIGINT UNSIGNED NULL,
   created_at       DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (id),
   KEY idx_lines_war (war_id),
   KEY idx_lines_member (roster_member_id),
-  KEY idx_lines_team (team_id),
   CONSTRAINT fk_lines_war
     FOREIGN KEY (war_id) REFERENCES wars(id)
     ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_lines_member
     FOREIGN KEY (roster_member_id) REFERENCES roster_members(id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_lines_team
-    FOREIGN KEY (team_id) REFERENCES teams(id)
     ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

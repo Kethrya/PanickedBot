@@ -15,6 +15,23 @@ import (
 	"PanickedBot/internal/discord"
 )
 
+// getDiscordDisplayName fetches the Discord display name for a user ID
+func getDiscordDisplayName(s *discordgo.Session, guildID string, userID string) string {
+	// Try to get the guild member to fetch their current display name
+	guildMember, err := s.GuildMember(guildID, userID)
+	if err == nil && guildMember != nil {
+		// Use display name (nickname) if set, otherwise use username
+		if guildMember.Nick != "" {
+			return guildMember.Nick
+		} else if guildMember.User != nil && guildMember.User.Username != "" {
+			return guildMember.User.Username
+		}
+	}
+
+	// Fallback to user ID if we can't fetch the member
+	return userID
+}
+
 func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.DB, cfg *GuildConfig) {
 	if !hasGuildMemberPermission(i, cfg) {
 		discord.RespondEphemeral(s, i, "You need guild member role to use this command.")
@@ -44,10 +61,13 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 		return
 	}
 
+	// Get display name from Discord
+	displayName := getDiscordDisplayName(s, i.GuildID, i.Member.User.ID)
+
 	// Get or create member record
 	m, err := internal.GetMemberByDiscordUserID(dbx, i.GuildID, i.Member.User.ID)
 	if err == sql.ErrNoRows {
-		// Create new member - use Discord username as default BDO name
+		// Create new member - use Discord username as default family name
 		memberID, err := internal.CreateMember(dbx, i.GuildID, i.Member.User.ID, i.Member.User.Username)
 		if err != nil {
 			log.Printf("updateself create error: %v", err)
@@ -70,8 +90,10 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 		return
 	}
 
-	// Build update fields
-	fields := internal.UpdateFields{}
+	// Build update fields including display name
+	fields := internal.UpdateFields{
+		DisplayName: &displayName,
+	}
 	if familyName != "" {
 		fields.FamilyName = &familyName
 	}
@@ -112,10 +134,27 @@ func handleGear(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.
 		}
 	}
 
+	// Validate non-negative values
+	if ap < 0 {
+		discord.RespondEphemeral(s, i, "AP cannot be negative.")
+		return
+	}
+	if aap < 0 {
+		discord.RespondEphemeral(s, i, "AAP cannot be negative.")
+		return
+	}
+	if dp < 0 {
+		discord.RespondEphemeral(s, i, "DP cannot be negative.")
+		return
+	}
+
+	// Get display name from Discord
+	displayName := getDiscordDisplayName(s, i.GuildID, i.Member.User.ID)
+
 	// Get or create member record
 	m, err := internal.GetMemberByDiscordUserID(dbx, i.GuildID, i.Member.User.ID)
 	if err == sql.ErrNoRows {
-		// Create new member - use Discord username as default BDO name
+		// Create new member - use Discord username as default family name
 		memberID, err := internal.CreateMember(dbx, i.GuildID, i.Member.User.ID, i.Member.User.Username)
 		if err != nil {
 			log.Printf("gear create error: %v", err)
@@ -143,11 +182,12 @@ func handleGear(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.
 	aapInt := int(aap)
 	dpInt := int(dp)
 
-	// Build update fields
+	// Build update fields including display name
 	fields := internal.UpdateFields{
-		AP:  &apInt,
-		AAP: &aapInt,
-		DP:  &dpInt,
+		AP:          &apInt,
+		AAP:         &aapInt,
+		DP:          &dpInt,
+		DisplayName: &displayName,
 	}
 
 	err = internal.UpdateMember(dbx, m.ID, fields)
@@ -207,10 +247,13 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 		return
 	}
 
+	// Get display name from Discord
+	displayName := getDiscordDisplayName(s, i.GuildID, targetUser.ID)
+
 	// Get or create member record
 	m, err := internal.GetMemberByDiscordUserID(dbx, i.GuildID, targetUser.ID)
 	if err == sql.ErrNoRows {
-		// Create new member - use Discord username as default BDO name
+		// Create new member - use Discord username as default family name
 		memberID, err := internal.CreateMember(dbx, i.GuildID, targetUser.ID, targetUser.Username)
 		if err != nil {
 			log.Printf("updatemember create error: %v", err)
@@ -278,8 +321,10 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 		}
 	}
 
-	// Build update fields
-	fields := internal.UpdateFields{}
+	// Build update fields including display name
+	fields := internal.UpdateFields{
+		DisplayName: &displayName,
+	}
 	if familyName != "" {
 		fields.FamilyName = &familyName
 	}

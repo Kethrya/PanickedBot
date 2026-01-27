@@ -12,6 +12,11 @@ import (
 	"PanickedBot/internal/discord"
 )
 
+// float64Ptr returns a pointer to a float64 value
+func float64Ptr(f float64) *float64 {
+	return &f
+}
+
 // Spec choices
 func getSpecChoices() []*discordgo.ApplicationCommandOptionChoice {
 	return []*discordgo.ApplicationCommandOptionChoice{
@@ -102,18 +107,21 @@ func GetCommands() []*discordgo.ApplicationCommand {
 					Name:        "ap",
 					Description: "Your Attack Power (AP)",
 					Required:    true,
+					MinValue:    float64Ptr(0),
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Name:        "aap",
 					Description: "Your Awakening Attack Power (AAP)",
 					Required:    true,
+					MinValue:    float64Ptr(0),
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Name:        "dp",
 					Description: "Your Defense Power (DP)",
 					Required:    true,
+					MinValue:    float64Ptr(0),
 				},
 			},
 		},

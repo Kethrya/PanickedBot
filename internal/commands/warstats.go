@@ -27,20 +27,19 @@ func GetWarStats(db *sqlx.DB, guildID string) ([]WarStats, error) {
 	var stats []WarStats
 	
 	// Query to get war stats for each active member
-	// Returns all active members including those with no war participation
+	// Only count wars, kills, and deaths from non-excluded wars
 	query := `
 		SELECT 
 			rm.family_name,
-			COUNT(DISTINCT wl.war_id) as total_wars,
-			MAX(w.war_date) as most_recent_war,
-			COALESCE(SUM(wl.kills), 0) as total_kills,
-			COALESCE(SUM(wl.deaths), 0) as total_deaths
+			COUNT(DISTINCT CASE WHEN w.id IS NOT NULL THEN w.id END) as total_wars,
+			MAX(CASE WHEN w.id IS NOT NULL THEN w.war_date END) as most_recent_war,
+			COALESCE(SUM(CASE WHEN w.id IS NOT NULL THEN wl.kills ELSE 0 END), 0) as total_kills,
+			COALESCE(SUM(CASE WHEN w.id IS NOT NULL THEN wl.deaths ELSE 0 END), 0) as total_deaths
 		FROM roster_members rm
 		LEFT JOIN war_lines wl ON rm.id = wl.roster_member_id
 		LEFT JOIN wars w ON wl.war_id = w.id AND w.is_excluded = 0
 		WHERE rm.discord_guild_id = ? 
 		  AND rm.is_active = 1
-		  AND rm.family_name IS NOT NULL
 		GROUP BY rm.id, rm.family_name
 		ORDER BY rm.family_name
 	`
@@ -53,7 +52,7 @@ func GetWarStats(db *sqlx.DB, guildID string) ([]WarStats, error) {
 	
 	for rows.Next() {
 		var stat WarStats
-		var familyName sql.NullString
+		var familyName string
 		var mostRecentWar sql.NullTime
 		
 		err := rows.Scan(&familyName, &stat.TotalWars, &mostRecentWar, &stat.TotalKills, &stat.TotalDeaths)
@@ -61,9 +60,7 @@ func GetWarStats(db *sqlx.DB, guildID string) ([]WarStats, error) {
 			return nil, err
 		}
 		
-		if familyName.Valid {
-			stat.FamilyName = familyName.String
-		}
+		stat.FamilyName = familyName
 		
 		if mostRecentWar.Valid {
 			stat.MostRecentWar = &mostRecentWar.Time
@@ -150,17 +147,23 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *s
 		// If too long, show fewer rows
 		var truncatedResponse strings.Builder
 		truncatedResponse.WriteString("**War Statistics** (showing first entries)\n```\n")
-		truncatedResponse.WriteString(fmt.Sprintf("%-20s %12s %-15s %8s %8s %8s\n",
-			"Family Name", "Total Wars", "Most Recent", "Kills", "Deaths", "K/D"))
+		header := fmt.Sprintf("%-20s %12s %-15s %8s %8s %8s\n",
+			"Family Name", "Total Wars", "Most Recent", "Kills", "Deaths", "K/D")
+		truncatedResponse.WriteString(header)
 		truncatedResponse.WriteString(strings.Repeat("-", 85) + "\n")
 
+		currentLen := truncatedResponse.Len()
+		const closingLen = 3 // length of "```"
+		
 		for _, stat := range stats {
 			line := formatWarStatLine(stat)
 			
-			if len(truncatedResponse.String()+line+"```") > 1990 {
+			// Check if adding this line would exceed the limit
+			if currentLen+len(line)+closingLen > 1990 {
 				break
 			}
 			truncatedResponse.WriteString(line)
+			currentLen += len(line)
 		}
 		truncatedResponse.WriteString("```")
 		discord.RespondText(s, i, truncatedResponse.String())
