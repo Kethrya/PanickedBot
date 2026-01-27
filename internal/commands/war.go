@@ -67,10 +67,16 @@ func parseWarCSV(content io.Reader) (warDate time.Time, warLines []WarLineData, 
 		if err != nil {
 			return time.Time{}, nil, fmt.Errorf("line %d: invalid kills value '%s': %w", lineNum, record[1], err)
 		}
+		if kills < 0 {
+			return time.Time{}, nil, fmt.Errorf("line %d: kills cannot be negative (got %d)", lineNum, kills)
+		}
 		
 		deaths, err := strconv.Atoi(strings.TrimSpace(record[2]))
 		if err != nil {
 			return time.Time{}, nil, fmt.Errorf("line %d: invalid deaths value '%s': %w", lineNum, record[2], err)
+		}
+		if deaths < 0 {
+			return time.Time{}, nil, fmt.Errorf("line %d: deaths cannot be negative (got %d)", lineNum, deaths)
 		}
 		
 		warLines = append(warLines, WarLineData{
@@ -209,6 +215,14 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 	// Check if it's a CSV file
 	if !strings.HasSuffix(strings.ToLower(attachment.Filename), ".csv") {
 		discord.RespondEphemeral(s, i, "File must be a CSV file (.csv extension).")
+		return
+	}
+	
+	// Validate that the URL is from Discord's CDN
+	if !strings.HasPrefix(attachment.URL, "https://cdn.discordapp.com/") && 
+	   !strings.HasPrefix(attachment.URL, "https://media.discordapp.net/") {
+		log.Printf("addwar: suspicious attachment URL: %s", attachment.URL)
+		discord.RespondEphemeral(s, i, "Invalid attachment source.")
 		return
 	}
 	
