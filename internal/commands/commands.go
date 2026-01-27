@@ -175,8 +175,8 @@ func GetCommands() []*discordgo.ApplicationCommand {
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
-					Name:        "team",
-					Description: "Team name to assign the member to",
+					Name:        "teams",
+					Description: "Comma-separated team names to assign the member to (replaces existing teams)",
 					Required:    false,
 				},
 				{
@@ -577,7 +577,7 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 
 	// Parse options
 	var targetUser *discordgo.User
-	var familyName, class, spec, teamName string
+	var familyName, class, spec, teamsStr string
 	var meetsCap *bool
 	hasUpdates := false
 
@@ -594,8 +594,8 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 		case "spec":
 			spec = opt.StringValue()
 			hasUpdates = true
-		case "team":
-			teamName = opt.StringValue()
+		case "teams":
+			teamsStr = opt.StringValue()
 			hasUpdates = true
 		case "meets_cap":
 			val := opt.BoolValue()
@@ -640,36 +640,49 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 		return
 	}
 
-	// Look up team ID if team name provided
-	var teamID *int64
-	if teamName != "" {
+	// Look up team IDs if team names provided
+	var teamIDs []int64
+	if teamsStr != "" {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		var teamData struct {
-			ID       int64 `db:"id"`
-			IsActive bool  `db:"is_active"`
-		}
-		err := dbx.GetContext(ctx, &teamData, `
-			SELECT id, is_active FROM `+"teams"+`
-			WHERE discord_guild_id = ? AND display_name = ?
-		`, i.GuildID, teamName)
-
-		if err == sql.ErrNoRows {
-			discord.RespondEphemeral(s, i, "Team '"+teamName+"' not found.")
-			return
-		} else if err != nil {
-			log.Printf("updatemember team lookup error: %v", err)
-			discord.RespondEphemeral(s, i, "Failed to update member information. Please try again.")
-			return
+		// Split comma-separated team names
+		teamNames := strings.Split(teamsStr, ",")
+		for i, name := range teamNames {
+			teamNames[i] = strings.TrimSpace(name)
 		}
 
-		if !teamData.IsActive {
-			discord.RespondEphemeral(s, i, "Team '"+teamName+"' is not active.")
-			return
-		}
+		// Look up each team
+		for _, teamName := range teamNames {
+			if teamName == "" {
+				continue
+			}
 
-		teamID = &teamData.ID
+			var teamData struct {
+				ID       int64 `db:"id"`
+				IsActive bool  `db:"is_active"`
+			}
+			err := dbx.GetContext(ctx, &teamData, `
+				SELECT id, is_active FROM `+"teams"+`
+				WHERE discord_guild_id = ? AND display_name = ?
+			`, i.GuildID, teamName)
+
+			if err == sql.ErrNoRows {
+				discord.RespondEphemeral(s, i, "Team '"+teamName+"' not found.")
+				return
+			} else if err != nil {
+				log.Printf("updatemember team lookup error: %v", err)
+				discord.RespondEphemeral(s, i, "Failed to update member information. Please try again.")
+				return
+			}
+
+			if !teamData.IsActive {
+				discord.RespondEphemeral(s, i, "Team '"+teamName+"' is not active.")
+				return
+			}
+
+			teamIDs = append(teamIDs, teamData.ID)
+		}
 	}
 
 	// Build update fields
@@ -683,8 +696,8 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 	if spec != "" {
 		fields.Spec = &spec
 	}
-	if teamID != nil {
-		fields.TeamID = teamID
+	if len(teamIDs) > 0 {
+		fields.TeamIDs = teamIDs
 	}
 	if meetsCap != nil {
 		fields.MeetsCap = meetsCap
@@ -695,6 +708,16 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 		log.Printf("updatemember error: %v", err)
 		discord.RespondEphemeral(s, i, "Failed to update member information. Please try again.")
 		return
+	}
+
+	// Update team assignments if provided
+	if len(teamIDs) > 0 {
+		err = internal.AssignMemberToTeams(dbx, m.ID, teamIDs)
+		if err != nil {
+			log.Printf("updatemember team assignment error: %v", err)
+			discord.RespondEphemeral(s, i, "Failed to assign teams. Please try again.")
+			return
+		}
 	}
 
 	discord.RespondText(s, i, "Member information updated successfully.")
@@ -841,7 +864,21 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 	for _, member := range members {
 		discordName := ""
 		if member.DiscordUserID != nil && *member.DiscordUserID != "" {
-			discordName := *member.DiscordUserID
+			// Try to get the guild member to fetch their current display name
+			guildMember, err := s.GuildMember(i.GuildID, *member.DiscordUserID)
+			if err == nil && guildMember != nil {
+				// Use display name (nickname) if set, otherwise use username
+				if guildMember.Nick != "" {
+					discordName = guildMember.Nick
+				} else if guildMember.User != nil && guildMember.User.Username != "" {
+					discordName = guildMember.User.Username
+				} else {
+					discordName = *member.DiscordUserID
+				}
+			} else {
+				// Fallback to user ID if we can't fetch the member
+				discordName = *member.DiscordUserID
+			}
 			if len(discordName) > 20 {
 				discordName = discordName[:17] + "..."
 			}
@@ -888,7 +925,21 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 		for _, member := range members {
 			discordName := ""
 			if member.DiscordUserID != nil && *member.DiscordUserID != "" {
-				discordName := *member.DiscordUserID
+				// Try to get the guild member to fetch their current display name
+				guildMember, err := s.GuildMember(i.GuildID, *member.DiscordUserID)
+				if err == nil && guildMember != nil {
+					// Use display name (nickname) if set, otherwise use username
+					if guildMember.Nick != "" {
+						discordName = guildMember.Nick
+					} else if guildMember.User != nil && guildMember.User.Username != "" {
+						discordName = guildMember.User.Username
+					} else {
+						discordName = *member.DiscordUserID
+					}
+				} else {
+					// Fallback to user ID if we can't fetch the member
+					discordName = *member.DiscordUserID
+				}
 				if len(discordName) > 20 {
 					discordName = discordName[:17] + "..."
 				}

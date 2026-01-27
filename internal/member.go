@@ -44,6 +44,7 @@ type UpdateFields struct {
 	Class      *string
 	Spec       *string
 	TeamID     *int64
+	TeamIDs    []int64 // For multiple team assignments
 	MeetsCap   *bool
 }
 
@@ -201,4 +202,55 @@ func GetAllRosterMembers(db *sqlx.DB, guildID string) ([]Member, error) {
 		return nil, err
 	}
 	return members, nil
+}
+
+// AssignMemberToTeams assigns a member to multiple teams (replaces all existing team assignments)
+func AssignMemberToTeams(db *sqlx.DB, memberID int64, teamIDs []int64) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	// Remove all existing team assignments
+	_, err = tx.ExecContext(ctx, `
+		DELETE FROM member_teams
+		WHERE roster_member_id = ?
+	`, memberID)
+	if err != nil {
+		return err
+	}
+
+	// Add new team assignments
+	if len(teamIDs) > 0 {
+		for _, teamID := range teamIDs {
+			_, err = tx.ExecContext(ctx, `
+				INSERT INTO member_teams (roster_member_id, team_id)
+				VALUES (?, ?)
+			`, memberID, teamID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit()
+}
+
+// GetMemberTeamIDs retrieves all team IDs for a member
+func GetMemberTeamIDs(db *sqlx.DB, memberID int64) ([]int64, error) {
+	var teamIDs []int64
+	err := db.Select(&teamIDs, `
+		SELECT team_id
+		FROM member_teams
+		WHERE roster_member_id = ?
+		ORDER BY assigned_at
+	`, memberID)
+	if err != nil {
+		return nil, err
+	}
+	return teamIDs, nil
 }
