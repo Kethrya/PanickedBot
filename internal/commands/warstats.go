@@ -12,27 +12,25 @@ import (
 	"PanickedBot/internal/discord"
 )
 
-
-
 // formatWarStatLine formats a single war stat entry as a string
 func formatWarStatLine(stat db.WarStats) string {
 	familyName := truncateString(stat.FamilyName, 20)
-	
+
 	totalWarsStr := "N/A"
 	mostRecentStr := "N/A"
 	killsStr := "N/A"
 	deathsStr := "N/A"
 	kdStr := "N/A"
-	
+
 	if stat.TotalWars > 0 {
 		totalWarsStr = fmt.Sprintf("%d", stat.TotalWars)
 		killsStr = fmt.Sprintf("%d", stat.TotalKills)
 		deathsStr = fmt.Sprintf("%d", stat.TotalDeaths)
-		
+
 		if stat.MostRecentWar != nil {
 			mostRecentStr = stat.MostRecentWar.Format("2006-01-02")
 		}
-		
+
 		// Calculate K/D ratio
 		if stat.TotalDeaths > 0 {
 			kd := float64(stat.TotalKills) / float64(stat.TotalDeaths)
@@ -72,7 +70,7 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *s
 	response.WriteString("**War Statistics**\n```\n")
 
 	// Header
-	response.WriteString(fmt.Sprintf("%-20s %12s %-15s %8s %8s %8s\n", 
+	response.WriteString(fmt.Sprintf("%-20s %12s %-15s %8s %8s %8s\n",
 		"Family Name", "Total Wars", "Most Recent", "Kills", "Deaths", "K/D"))
 	response.WriteString(strings.Repeat("-", 85) + "\n")
 
@@ -96,10 +94,10 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *s
 
 		currentLen := truncatedResponse.Len()
 		const closingLen = 3 // length of "```"
-		
+
 		for _, stat := range stats {
 			line := formatWarStatLine(stat)
-			
+
 			// Check if adding this line would exceed the limit
 			if currentLen+len(line)+closingLen > 1990 {
 				break

@@ -197,7 +197,7 @@ func handleGear(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.
 	}
 
 	// Calculate and display GS
-	gs := (apInt + aapInt) / 2 + dpInt
+	gs := (apInt+aapInt)/2 + dpInt
 	discord.RespondText(s, i, fmt.Sprintf("Your gear stats have been updated successfully.\nAP: %d | AAP: %d | DP: %d | GS: %d", apInt, aapInt, dpInt, gs))
 }
 
