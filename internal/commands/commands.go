@@ -182,6 +182,10 @@ func GetCommands() []*discordgo.ApplicationCommand {
 			Name:        "roster",
 			Description: "Get all roster member information (officer role required)",
 		},
+		{
+			Name:        "warstats",
+			Description: "Get war statistics for all roster members (officer role required)",
+		},
 	}
 }
 
@@ -253,6 +257,9 @@ func CreateInteractionHandler(database *sqlx.DB) func(s *discordgo.Session, i *d
 
 		case "roster":
 			handleGetRoster(s, i, database, cfg)
+
+		case "warstats":
+			handleWarStats(s, i, database, cfg)
 
 		default:
 			discord.RespondEphemeral(s, i, "Unknown command.")

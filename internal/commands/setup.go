@@ -19,18 +19,8 @@ func setupCommand() *discordgo.ApplicationCommand {
 			{
 				Type:        discordgo.ApplicationCommandOptionChannel,
 				Name:        "command_channel",
-				Description: "Channel where commands are allowed",
+				Description: "Channel where commands and results will be posted",
 				Required:    true,
-				ChannelTypes: []discordgo.ChannelType{
-					discordgo.ChannelTypeGuildText,
-					discordgo.ChannelTypeGuildNews,
-				},
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionChannel,
-				Name:        "results_channel",
-				Description: "Channel where results will be posted (defaults to command_channel)",
-				Required:    false,
 				ChannelTypes: []discordgo.ChannelType{
 					discordgo.ChannelTypeGuildText,
 					discordgo.ChannelTypeGuildNews,
@@ -78,7 +68,6 @@ func handleSetup(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx
 
 	// Parse options
 	var commandChannelID string
-	var resultsChannelID string
 	var officerRoleID string
 	var guildMemberRoleID string
 	var mercenaryRoleID string
@@ -87,8 +76,6 @@ func handleSetup(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx
 		switch opt.Name {
 		case "command_channel":
 			commandChannelID = opt.ChannelValue(nil).ID
-		case "results_channel":
-			resultsChannelID = opt.ChannelValue(nil).ID
 		case "officer_role":
 			officerRoleID = opt.RoleValue(nil, i.GuildID).ID
 		case "guild_member_role":
@@ -101,9 +88,6 @@ func handleSetup(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx
 	if commandChannelID == "" {
 		discord.RespondEphemeral(s, i, "command_channel is required.")
 		return
-	}
-	if resultsChannelID == "" {
-		resultsChannelID = commandChannelID
 	}
 
 	// Fetch guild name (best effort)
@@ -138,16 +122,15 @@ func handleSetup(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx
 
 	// Upsert config row
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO config (discord_guild_id, command_channel_id, results_channel_id,
+		INSERT INTO config (discord_guild_id, command_channel_id,
 		                    officer_role_id, guild_member_role_id, mercenary_role_id)
-		VALUES (?, ?, ?, ?, ?, ?)
+		VALUES (?, ?, ?, ?, ?)
 		ON DUPLICATE KEY UPDATE
 			command_channel_id   = VALUES(command_channel_id),
-			results_channel_id   = VALUES(results_channel_id),
 			officer_role_id      = VALUES(officer_role_id),
 			guild_member_role_id = VALUES(guild_member_role_id),
 			mercenary_role_id    = VALUES(mercenary_role_id)
-	`, i.GuildID, commandChannelID, resultsChannelID,
+	`, i.GuildID, commandChannelID,
 		internal.NullIfEmpty(officerRoleID), internal.NullIfEmpty(guildMemberRoleID), internal.NullIfEmpty(mercenaryRoleID))
 	if err != nil {
 		discord.RespondEphemeral(s, i, "Failed to save configuration. Please try again.")
@@ -161,8 +144,7 @@ func handleSetup(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx
 
 	// Respond ephemerally with what was set
 	msg := "Setup saved.\n" +
-		"Command channel: <#" + commandChannelID + ">\n" +
-		"Results channel: <#" + resultsChannelID + ">"
+		"Command/Results channel: <#" + commandChannelID + ">"
 
 	if officerRoleID != "" {
 		msg += "\nOfficer role: <@&" + officerRoleID + ">"
