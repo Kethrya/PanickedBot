@@ -241,8 +241,8 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 
 		// Split comma-separated team names
 		teamNames := strings.Split(teamsStr, ",")
-		for i, name := range teamNames {
-			teamNames[i] = strings.TrimSpace(name)
+		for idx, name := range teamNames {
+			teamNames[idx] = strings.TrimSpace(name)
 		}
 
 		// Look up each team
