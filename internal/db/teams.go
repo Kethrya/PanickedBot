@@ -3,11 +3,15 @@ package db
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
 )
+
+// ErrTeamAlreadyExists is returned when trying to create a team that already exists and is active
+var ErrTeamAlreadyExists = errors.New("team already exists and is active")
 
 // Team represents a team in the database
 type Team struct {
@@ -25,7 +29,7 @@ func GetTeamByName(db *sqlx.DB, guildID, teamName string) (*Team, error) {
 	var team Team
 	err := db.GetContext(ctx, &team, `
 		SELECT id, code, display_name, is_active
-		FROM `+"`teams`"+`
+		FROM teams
 		WHERE discord_guild_id = ? AND display_name = ?
 	`, guildID, teamName)
 
@@ -51,7 +55,7 @@ func CreateTeam(db *sqlx.DB, guildID, teamName string) (int64, bool, error) {
 		IsActive bool  `db:"is_active"`
 	}
 	err := db.GetContext(ctx, &existingTeam, `
-		SELECT id, is_active FROM `+"`teams`"+`
+		SELECT id, is_active FROM teams
 		WHERE discord_guild_id = ? AND (code = ? OR display_name = ?)
 	`, guildID, code, teamName)
 
@@ -60,7 +64,7 @@ func CreateTeam(db *sqlx.DB, guildID, teamName string) (int64, bool, error) {
 		if !existingTeam.IsActive {
 			// Reactivate the team
 			_, err := db.ExecContext(ctx, `
-				UPDATE `+"`teams`"+`
+				UPDATE teams
 				SET is_active = 1
 				WHERE id = ?
 			`, existingTeam.ID)
@@ -72,14 +76,14 @@ func CreateTeam(db *sqlx.DB, guildID, teamName string) (int64, bool, error) {
 			return existingTeam.ID, true, nil
 		}
 		// Team is already active - return error
-		return existingTeam.ID, false, sql.ErrNoRows // Using ErrNoRows to indicate already exists
+		return existingTeam.ID, false, ErrTeamAlreadyExists
 	} else if err != sql.ErrNoRows {
 		return 0, false, err
 	}
 
 	// Team doesn't exist - create it
 	result, err := db.ExecContext(ctx, `
-		INSERT INTO `+"`teams`"+` (discord_guild_id, code, display_name, is_active)
+		INSERT INTO teams (discord_guild_id, code, display_name, is_active)
 		VALUES (?, ?, ?, 1)
 	`, guildID, code, teamName)
 
@@ -101,7 +105,7 @@ func DeactivateTeam(db *sqlx.DB, guildID, teamName string) (bool, error) {
 	defer cancel()
 
 	result, err := db.ExecContext(ctx, `
-		UPDATE `+"`teams`"+`
+		UPDATE teams
 		SET is_active = 0
 		WHERE discord_guild_id = ? AND display_name = ? AND is_active = 1
 	`, guildID, teamName)

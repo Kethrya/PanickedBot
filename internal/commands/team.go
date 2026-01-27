@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"database/sql"
 	"log"
 
 	"github.com/bwmarrin/discordgo"
@@ -32,7 +31,7 @@ func handleAddTeam(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sq
 
 	// Create team (will reactivate if exists and inactive)
 	_, reactivated, err := db.CreateTeam(dbx, i.GuildID, teamName)
-	if err == sql.ErrNoRows {
+	if err == db.ErrTeamAlreadyExists {
 		// Team already exists and is active
 		discord.RespondEphemeral(s, i, "A team with that name already exists and is active.")
 		return
