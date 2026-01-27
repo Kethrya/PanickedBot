@@ -1,79 +1,21 @@
 package commands
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jmoiron/sqlx"
 
+	"PanickedBot/internal/db"
 	"PanickedBot/internal/discord"
 )
 
-// WarStats represents war statistics for a member
-type WarStats struct {
-	FamilyName      string
-	TotalWars       int
-	MostRecentWar   *time.Time
-	TotalKills      int
-	TotalDeaths     int
-}
 
-// GetWarStats retrieves war statistics for all active members
-func GetWarStats(db *sqlx.DB, guildID string) ([]WarStats, error) {
-	var stats []WarStats
-	
-	// Query to get war stats for each active member
-	// Only count wars, kills, and deaths from non-excluded wars
-	query := `
-		SELECT 
-			rm.family_name,
-			COUNT(DISTINCT CASE WHEN w.id IS NOT NULL THEN w.id END) as total_wars,
-			MAX(CASE WHEN w.id IS NOT NULL THEN w.war_date END) as most_recent_war,
-			COALESCE(SUM(CASE WHEN w.id IS NOT NULL THEN wl.kills ELSE 0 END), 0) as total_kills,
-			COALESCE(SUM(CASE WHEN w.id IS NOT NULL THEN wl.deaths ELSE 0 END), 0) as total_deaths
-		FROM roster_members rm
-		LEFT JOIN war_lines wl ON rm.id = wl.roster_member_id
-		LEFT JOIN wars w ON wl.war_id = w.id AND w.is_excluded = 0
-		WHERE rm.discord_guild_id = ? 
-		  AND rm.is_active = 1
-		GROUP BY rm.id, rm.family_name
-		ORDER BY rm.family_name
-	`
-	
-	rows, err := db.Query(query, guildID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	
-	for rows.Next() {
-		var stat WarStats
-		var familyName string
-		var mostRecentWar sql.NullTime
-		
-		err := rows.Scan(&familyName, &stat.TotalWars, &mostRecentWar, &stat.TotalKills, &stat.TotalDeaths)
-		if err != nil {
-			return nil, err
-		}
-		
-		stat.FamilyName = familyName
-		
-		if mostRecentWar.Valid {
-			stat.MostRecentWar = &mostRecentWar.Time
-		}
-		
-		stats = append(stats, stat)
-	}
-	
-	return stats, rows.Err()
-}
 
 // formatWarStatLine formats a single war stat entry as a string
-func formatWarStatLine(stat WarStats) string {
+func formatWarStatLine(stat db.WarStats) string {
 	familyName := truncateString(stat.FamilyName, 20)
 	
 	totalWarsStr := "N/A"
@@ -113,7 +55,7 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *s
 	}
 
 	// Get war statistics
-	stats, err := GetWarStats(dbx, i.GuildID)
+	stats, err := db.GetWarStats(dbx, i.GuildID)
 	if err != nil {
 		log.Printf("warstats error: %v", err)
 		discord.RespondEphemeral(s, i, "Failed to retrieve war statistics. Please try again.")

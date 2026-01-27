@@ -1,17 +1,16 @@
 package commands
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jmoiron/sqlx"
 
 	"PanickedBot/internal"
+	"PanickedBot/internal/db"
 	"PanickedBot/internal/discord"
 )
 
@@ -279,9 +278,6 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 	// Look up team IDs if team names provided
 	var teamIDs []int64
 	if teamsStr != "" {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
 		// Split comma-separated team names
 		teamNames := strings.Split(teamsStr, ",")
 		for idx, name := range teamNames {
@@ -294,15 +290,7 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 				continue
 			}
 
-			var teamData struct {
-				ID       int64 `db:"id"`
-				IsActive bool  `db:"is_active"`
-			}
-			err := dbx.GetContext(ctx, &teamData, `
-				SELECT id, is_active FROM `+"teams"+`
-				WHERE discord_guild_id = ? AND display_name = ?
-			`, i.GuildID, teamName)
-
+			team, err := db.GetTeamByName(dbx, i.GuildID, teamName)
 			if err == sql.ErrNoRows {
 				discord.RespondEphemeral(s, i, "Team '"+teamName+"' not found.")
 				return
@@ -312,12 +300,12 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 				return
 			}
 
-			if !teamData.IsActive {
+			if !team.IsActive {
 				discord.RespondEphemeral(s, i, "Team '"+teamName+"' is not active.")
 				return
 			}
 
-			teamIDs = append(teamIDs, teamData.ID)
+			teamIDs = append(teamIDs, team.ID)
 		}
 	}
 

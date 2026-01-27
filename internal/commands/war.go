@@ -2,7 +2,6 @@ package commands
 
 import (
 	"context"
-	"database/sql"
 	"encoding/csv"
 	"fmt"
 	"io"
@@ -15,13 +14,14 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/jmoiron/sqlx"
 
+	"PanickedBot/internal/db"
 	"PanickedBot/internal/discord"
 )
 
 // parseWarCSV parses a CSV file with war data
 // First line: date in YYYY-mm-dd format
 // Remaining lines: family_name, kills, deaths
-func parseWarCSV(content io.Reader) (warDate time.Time, warLines []WarLineData, err error) {
+func parseWarCSV(content io.Reader) (warDate time.Time, warLines []db.WarLineData, err error) {
 	reader := csv.NewReader(content)
 	reader.TrimLeadingSpace = true
 	
@@ -79,7 +79,7 @@ func parseWarCSV(content io.Reader) (warDate time.Time, warLines []WarLineData, 
 			return time.Time{}, nil, fmt.Errorf("line %d: deaths cannot be negative (got %d)", lineNum, deaths)
 		}
 		
-		warLines = append(warLines, WarLineData{
+		warLines = append(warLines, db.WarLineData{
 			FamilyName: familyName,
 			Kills:      kills,
 			Deaths:     deaths,
@@ -91,101 +91,6 @@ func parseWarCSV(content io.Reader) (warDate time.Time, warLines []WarLineData, 
 	}
 	
 	return warDate, warLines, nil
-}
-
-// WarLineData represents a single war line entry
-type WarLineData struct {
-	FamilyName string
-	Kills      int
-	Deaths     int
-}
-
-// createWarFromCSV creates a war entry and associated war lines from CSV data
-func createWarFromCSV(db *sqlx.DB, guildID string, requestChannelID string, requestMessageID string, requestedByUserID string, warDate time.Time, warLines []WarLineData) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	
-	tx, err := db.BeginTxx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-	
-	// Create war_job entry
-	jobResult, err := tx.ExecContext(ctx, `
-		INSERT INTO war_jobs (discord_guild_id, request_channel_id, request_message_id, 
-		                      requested_by_user_id, status, started_at, finished_at)
-		VALUES (?, ?, ?, ?, 'done', NOW(), NOW())
-	`, guildID, requestChannelID, requestMessageID, requestedByUserID)
-	if err != nil {
-		return fmt.Errorf("failed to create war job: %w", err)
-	}
-	
-	jobID, err := jobResult.LastInsertId()
-	if err != nil {
-		return fmt.Errorf("failed to get job ID: %w", err)
-	}
-	
-	// Create war entry
-	warResult, err := tx.ExecContext(ctx, `
-		INSERT INTO wars (discord_guild_id, job_id, war_date, label)
-		VALUES (?, ?, ?, ?)
-	`, guildID, jobID, warDate.Format("2006-01-02"), fmt.Sprintf("CSV Import - %s", warDate.Format("2006-01-02")))
-	if err != nil {
-		return fmt.Errorf("failed to create war: %w", err)
-	}
-	
-	warID, err := warResult.LastInsertId()
-	if err != nil {
-		return fmt.Errorf("failed to get war ID: %w", err)
-	}
-	
-	// Create war_lines entries
-	for _, line := range warLines {
-		// Try to match the family name to a roster member
-		var rosterMemberID sql.NullInt64
-		err := tx.GetContext(ctx, &rosterMemberID, `
-			SELECT id FROM roster_members
-			WHERE discord_guild_id = ? AND family_name = ?
-			LIMIT 1
-		`, guildID, line.FamilyName)
-		
-		if err == sql.ErrNoRows {
-			// Roster member doesn't exist - create one
-			result, err := tx.ExecContext(ctx, `
-				INSERT INTO roster_members (discord_guild_id, family_name, is_active)
-				VALUES (?, ?, 1)
-			`, guildID, line.FamilyName)
-			if err != nil {
-				return fmt.Errorf("failed to create roster member for '%s': %w", line.FamilyName, err)
-			}
-			
-			newID, err := result.LastInsertId()
-			if err != nil {
-				return fmt.Errorf("failed to get new roster member ID for '%s': %w", line.FamilyName, err)
-			}
-			
-			rosterMemberID.Int64 = newID
-			rosterMemberID.Valid = true
-		} else if err != nil {
-			return fmt.Errorf("failed to lookup roster member for '%s': %w", line.FamilyName, err)
-		}
-		
-		// Insert war_line
-		_, err = tx.ExecContext(ctx, `
-			INSERT INTO war_lines (war_id, roster_member_id, ocr_name, kills, deaths, matched_name)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, warID, rosterMemberID, line.FamilyName, line.Kills, line.Deaths, line.FamilyName)
-		if err != nil {
-			return fmt.Errorf("failed to create war line for '%s': %w", line.FamilyName, err)
-		}
-	}
-	
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-	
-	return nil
 }
 
 func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.DB, cfg *GuildConfig) {
@@ -280,7 +185,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sql
 	}
 	
 	// Create the war entry
-	err = createWarFromCSV(dbx, i.GuildID, i.ChannelID, i.ID, i.Member.User.ID, warDate, warLines)
+	err = db.CreateWarFromCSV(dbx, i.GuildID, i.ChannelID, i.ID, i.Member.User.ID, warDate, warLines)
 	if err != nil {
 		log.Printf("addwar create error: %v", err)
 		discord.RespondEphemeral(s, i, "Failed to create war entry. Please try again.")
