@@ -218,6 +218,45 @@ The bot will:
 **Description:** Get all roster member information  
 **Required Role:** Officer Role
 
+#### `/merc`
+**Description:** Mark a member as mercenary or not  
+**Required Role:** Officer Role  
+**Parameters:**
+- `member` (required) - Discord member to update
+- `is_mercenary` (required) - Whether the member is a mercenary (true/false)
+
+**Note:** Mercenary members are excluded from roster reports and certain statistics.
+
+#### `/attendance`
+**Description:** Get all members with attendance problems  
+**Required Role:** Officer Role  
+**Parameters:**
+- `weeks` (optional) - Number of weeks to check (default: 4, max: 52)
+
+**Output:** Displays members who have missed at least one war in the specified time period, excluding weeks covered by vacation. For each member with issues:
+- Number of weeks missed
+- Number of weeks attended
+- List of missed weeks (if 5 or fewer)
+
+**Note:** Attendance tracking only considers weeks after the member was added to the roster. Inactive members are excluded from checks.
+
+#### `/checkattendance`
+**Description:** Check attendance for a specific member  
+**Required Role:** Officer Role  
+**Parameters:**
+- `member` (optional) - Discord member to check
+- `family_name` (optional) - Family name of member to check
+- `weeks` (optional) - Number of weeks to check (default: 4, max: 52)
+
+**Output:** Displays detailed attendance information for the specified member:
+- Member creation date
+- Total weeks considered
+- Number of weeks attended
+- Number of weeks missed
+- List of all missed weeks
+
+**Note:** Either `member` or `family_name` must be provided. Weeks covered by vacation are not counted as missed.
+
 ### Team Management
 
 #### `/addteam`
