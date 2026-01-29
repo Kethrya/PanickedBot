@@ -271,6 +271,21 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 		return
 	}
 
+	// Get the result parameter
+	options := i.ApplicationCommandData().Options
+	var warResult string
+	for _, opt := range options {
+		if opt.Name == "result" {
+			warResult = opt.StringValue()
+			break
+		}
+	}
+
+	if warResult == "" {
+		discord.RespondEphemeral(s, i, "Please select a war result (Win or Lose).")
+		return
+	}
+
 	// Get the attachment
 	if len(i.ApplicationCommandData().Resolved.Attachments) == 0 {
 		discord.RespondEphemeral(s, i, "Please attach a CSV or image file with war data.")
@@ -421,12 +436,12 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 	}
 
 	// Create the war entry
-	err = db.CreateWarFromCSV(dbx, i.GuildID, i.ChannelID, i.ID, i.Member.User.ID, warDate, warLines)
+	err = db.CreateWarFromCSV(dbx, i.GuildID, i.ChannelID, i.ID, i.Member.User.ID, warDate, warResult, warLines)
 	if err != nil {
 		log.Printf("addwar create error: %v", err)
 		discord.RespondEphemeral(s, i, "Failed to create war entry. Please try again.")
 		return
 	}
 
-	discord.RespondText(s, i, fmt.Sprintf("War data imported successfully!\nDate: %s\nEntries: %d", warDate.Format("2006-01-02"), len(warLines)))
+	discord.RespondText(s, i, fmt.Sprintf("War data imported successfully!\nDate: %s\nResult: %s\nEntries: %d", warDate.Format("2006-01-02"), strings.Title(warResult), len(warLines)))
 }

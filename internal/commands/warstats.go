@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 
@@ -109,4 +110,126 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 	} else {
 		discord.RespondText(s, i, responseText)
 	}
+}
+
+func handleWarResults(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, cfg *GuildConfig) {
+	if !hasOfficerPermission(s, i, cfg) {
+		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
+		return
+	}
+
+	// Get war results
+	results, err := db.GetWarResults(dbx, i.GuildID)
+	if err != nil {
+		log.Printf("warresults error: %v", err)
+		discord.RespondEphemeral(s, i, "Failed to retrieve war results. Please try again.")
+		return
+	}
+
+	if len(results) == 0 {
+		discord.RespondEphemeral(s, i, "No war data found.")
+		return
+	}
+
+	// Calculate cumulative stats
+	var cumulativeKills, cumulativeDeaths int
+	for _, result := range results {
+		cumulativeKills += result.TotalKills
+		cumulativeDeaths += result.TotalDeaths
+	}
+
+	// Calculate cumulative K/D ratio
+	var cumulativeKD string
+	if cumulativeDeaths > 0 {
+		kd := float64(cumulativeKills) / float64(cumulativeDeaths)
+		cumulativeKD = fmt.Sprintf("%.2f", kd)
+	} else if cumulativeKills > 0 {
+		cumulativeKD = fmt.Sprintf("%.2f", float64(cumulativeKills))
+	} else {
+		cumulativeKD = "0.00"
+	}
+
+	// Build response message with aligned columns
+	var response strings.Builder
+	response.WriteString("**War Results**\n```\n")
+
+	// Header
+	response.WriteString(fmt.Sprintf("%-15s %8s %10s %10s %10s\n",
+		"Date", "Result", "Kills", "Deaths", "K/D"))
+	response.WriteString(strings.Repeat("-", 60) + "\n")
+
+	// Data rows
+	for _, result := range results {
+		dateStr := result.WarDate.Format("2006-01-02")
+		
+		// Format result as W/L or empty
+		var resultStr string
+		if result.Result == "win" {
+			resultStr = "W"
+		} else if result.Result == "lose" {
+			resultStr = "L"
+		} else {
+			resultStr = "-"
+		}
+		
+		// Calculate K/D ratio for this war
+		var kdStr string
+		if result.TotalDeaths > 0 {
+			kd := float64(result.TotalKills) / float64(result.TotalDeaths)
+			kdStr = fmt.Sprintf("%.2f", kd)
+		} else if result.TotalKills > 0 {
+			kdStr = fmt.Sprintf("%.2f", float64(result.TotalKills))
+		} else {
+			kdStr = "0.00"
+		}
+
+		response.WriteString(fmt.Sprintf("%-15s %8s %10d %10d %10s\n",
+			dateStr, resultStr, result.TotalKills, result.TotalDeaths, kdStr))
+	}
+
+	// Add cumulative line
+	response.WriteString(strings.Repeat("-", 60) + "\n")
+	response.WriteString(fmt.Sprintf("%-15s %8s %10d %10d %10s\n",
+		"TOTAL", "", cumulativeKills, cumulativeDeaths, cumulativeKD))
+
+	response.WriteString("```")
+
+	discord.RespondText(s, i, response.String())
+}
+
+func handleRemoveWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, cfg *GuildConfig) {
+	if !hasOfficerPermission(s, i, cfg) {
+		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
+		return
+	}
+
+	// Get the date parameter
+	options := i.ApplicationCommandData().Options
+	if len(options) == 0 {
+		discord.RespondEphemeral(s, i, "Please provide a date in YYYY-MM-DD format.")
+		return
+	}
+
+	dateStr := options[0].StringValue()
+
+	// Parse the date
+	warDate, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		discord.RespondEphemeral(s, i, "Invalid date format. Please use YYYY-MM-DD format (e.g., 2025-01-15).")
+		return
+	}
+
+	// Delete the war
+	err = db.DeleteWarByDate(dbx, i.GuildID, warDate)
+	if err != nil {
+		log.Printf("removewar error: %v", err)
+		if strings.Contains(err.Error(), "no war found") {
+			discord.RespondEphemeral(s, i, fmt.Sprintf("No war found for date %s.", dateStr))
+		} else {
+			discord.RespondEphemeral(s, i, "Failed to remove war. Please try again.")
+		}
+		return
+	}
+
+	discord.RespondText(s, i, fmt.Sprintf("Successfully removed war data for %s.", dateStr))
 }

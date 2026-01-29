@@ -58,7 +58,7 @@ type WarLineData struct {
 }
 
 // CreateWarFromCSV creates a war entry and associated war lines from CSV data
-func CreateWarFromCSV(db *DB, guildID string, requestChannelID string, requestMessageID string, requestedByUserID string, warDate time.Time, warLines []WarLineData) error {
+func CreateWarFromCSV(db *DB, guildID string, requestChannelID string, requestMessageID string, requestedByUserID string, warDate time.Time, warResult string, warLines []WarLineData) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -87,18 +87,25 @@ func CreateWarFromCSV(db *DB, guildID string, requestChannelID string, requestMe
 		return fmt.Errorf("failed to get job ID: %w", err)
 	}
 
+	// Prepare the result field
+	var resultField sqlcdb.NullWarsResult
+	if warResult != "" {
+		resultField = sqlcdb.NullWarsResult{WarsResult: sqlcdb.WarsResult(warResult), Valid: true}
+	}
+
 	// Create war entry
-	warResult, err := qtx.CreateWar(ctx, sqlcdb.CreateWarParams{
+	warDBResult, err := qtx.CreateWar(ctx, sqlcdb.CreateWarParams{
 		DiscordGuildID: guildID,
 		JobID:          uint64(jobID),
 		WarDate:        warDate,
 		Label:          sql.NullString{String: fmt.Sprintf("CSV Import - %s", warDate.Format("2006-01-02")), Valid: true},
+		Result:         resultField,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create war: %w", err)
 	}
 
-	warID, err := warResult.LastInsertId()
+	warID, err := warDBResult.LastInsertId()
 	if err != nil {
 		return fmt.Errorf("failed to get war ID: %w", err)
 	}
@@ -152,6 +159,68 @@ func CreateWarFromCSV(db *DB, guildID string, requestChannelID string, requestMe
 
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+// WarResult represents a single war's aggregated results
+type WarResult struct {
+	WarDate     time.Time
+	Result      string // "win", "lose", or empty
+	TotalKills  int
+	TotalDeaths int
+}
+
+// GetWarResults retrieves all war results for a guild
+func GetWarResults(db *DB, guildID string) ([]WarResult, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rows, err := db.Queries.GetWarResults(ctx, guildID)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]WarResult, 0, len(rows))
+	for _, row := range rows {
+		result := WarResult{
+			WarDate:     row.WarDate,
+			TotalKills:  int(row.TotalKills),
+			TotalDeaths: int(row.TotalDeaths),
+		}
+		
+		// Handle the result field (can be NULL)
+		if row.Result.Valid {
+			result.Result = string(row.Result.WarsResult)
+		}
+
+		results = append(results, result)
+	}
+
+	return results, nil
+}
+
+// DeleteWarByDate deletes all war data for a specific date
+func DeleteWarByDate(db *DB, guildID string, warDate time.Time) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	result, err := db.Queries.DeleteWarByDate(ctx, sqlcdb.DeleteWarByDateParams{
+		DiscordGuildID: guildID,
+		WarDate:        warDate,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete war: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("no war found for date %s", warDate.Format("2006-01-02"))
 	}
 
 	return nil

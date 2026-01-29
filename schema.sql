@@ -139,6 +139,7 @@ CREATE TABLE IF NOT EXISTS wars (
   job_id           BIGINT UNSIGNED NOT NULL,
   war_date         DATE NOT NULL,
   label            VARCHAR(255) NULL,
+  result           ENUM('win','lose') NULL COMMENT 'War result: win or lose',
   is_excluded      TINYINT(1) NOT NULL DEFAULT 0,
   created_at       DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (id),

@@ -19,8 +19,8 @@ INSERT INTO war_jobs (discord_guild_id, request_channel_id, request_message_id,
 VALUES (?, ?, ?, ?, 'done', NOW(), NOW());
 
 -- name: CreateWar :execresult
-INSERT INTO wars (discord_guild_id, job_id, war_date, label)
-VALUES (?, ?, ?, ?);
+INSERT INTO wars (discord_guild_id, job_id, war_date, label, result)
+VALUES (?, ?, ?, ?, ?);
 
 -- name: GetRosterMemberByFamilyName :one
 SELECT id FROM roster_members
@@ -34,3 +34,19 @@ VALUES (?, ?, 1);
 -- name: CreateWarLine :exec
 INSERT INTO war_lines (war_id, roster_member_id, ocr_name, kills, deaths, matched_name)
 VALUES (?, ?, ?, ?, ?, ?);
+
+-- name: GetWarResults :many
+SELECT 
+    w.war_date,
+    w.result,
+    CAST(COALESCE(SUM(wl.kills), 0) AS SIGNED) as total_kills,
+    CAST(COALESCE(SUM(wl.deaths), 0) AS SIGNED) as total_deaths
+FROM wars w
+LEFT JOIN war_lines wl ON w.id = wl.war_id
+WHERE w.discord_guild_id = ? AND w.is_excluded = 0
+GROUP BY w.id, w.war_date, w.result
+ORDER BY w.war_date DESC;
+
+-- name: DeleteWarByDate :execresult
+DELETE FROM wars
+WHERE discord_guild_id = ? AND war_date = ?;
