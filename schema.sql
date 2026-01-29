@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS roster_members (
   -- Status flags
   meets_cap         TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Officer verified member meets required stat caps',
   is_exception      TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Member K/D stats excluded from guild overall K/D calculations',
+  is_mercenary      TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Member is a mercenary and excluded from roster',
   is_active         TINYINT(1) NOT NULL DEFAULT 1,
   created_at        DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_at        DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
@@ -138,6 +139,7 @@ CREATE TABLE IF NOT EXISTS wars (
   job_id           BIGINT UNSIGNED NOT NULL,
   war_date         DATE NOT NULL,
   label            VARCHAR(255) NULL,
+  result           ENUM('win','lose') NULL COMMENT 'War result: win or lose',
   is_excluded      TINYINT(1) NOT NULL DEFAULT 0,
   created_at       DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (id),

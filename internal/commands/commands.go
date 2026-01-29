@@ -6,9 +6,9 @@ import (
 	"log"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/jmoiron/sqlx"
 
 	"PanickedBot/internal"
+	"PanickedBot/internal/db"
 	"PanickedBot/internal/discord"
 )
 
@@ -197,18 +197,132 @@ func GetCommands() []*discordgo.ApplicationCommand {
 			Description: "Get all roster member information (officer role required)",
 		},
 		{
+			Name:        "merc",
+			Description: "Mark a member as mercenary or not (officer role required)",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "member",
+					Description: "Discord member to update",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "is_mercenary",
+					Description: "Whether the member is a mercenary",
+					Required:    true,
+				},
+			},
+		},
+		{
+			Name:        "vacation",
+			Description: "Add a vacation period for a member (officer role required)",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "member",
+					Description: "Discord member going on vacation",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "start_date",
+					Description: "Vacation start date (YYYY-MM-DD)",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "end_date",
+					Description: "Vacation end date (YYYY-MM-DD)",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "reason",
+					Description: "Optional reason for vacation",
+					Required:    false,
+				},
+			},
+		},
+		{
 			Name:        "warstats",
 			Description: "Get war statistics for all roster members (officer role required)",
 		},
 		{
+			Name:        "warresults",
+			Description: "Get results of all wars from most recent to oldest (officer role required)",
+		},
+		{
+			Name:        "removewar",
+			Description: "Remove war data for a specific date (officer role required)",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "date",
+					Description: "War date in YYYY-MM-DD format",
+					Required:    true,
+				},
+			},
+		},
+		{
 			Name:        "addwar",
-			Description: "Import war data from a CSV file (officer role required)",
+			Description: "Import war data from a CSV or image file (officer role required)",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionAttachment,
-					Name:        "csv_file",
-					Description: "CSV file with war data (first line: date YYYY-mm-dd, rest: family_name,kills,deaths)",
+					Name:        "file",
+					Description: "CSV or image file (<5MB) with war data",
 					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "result",
+					Description: "War result",
+					Required:    true,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{Name: "Win", Value: "win"},
+						{Name: "Lose", Value: "lose"},
+					},
+				},
+			},
+		},
+		{
+			Name:        "attendance",
+			Description: "Get all members with attendance problems (officer role required)",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "weeks",
+					Description: "Number of weeks to check (default: 4)",
+					Required:    false,
+					MinValue:    float64Ptr(1),
+					MaxValue:    52,
+				},
+			},
+		},
+		{
+			Name:        "checkattendance",
+			Description: "Check attendance for a specific member (officer role required)",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "member",
+					Description: "Discord member to check",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "family_name",
+					Description: "Family name of member to check",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "weeks",
+					Description: "Number of weeks to check (default: 4)",
+					Required:    false,
+					MinValue:    float64Ptr(1),
+					MaxValue:    52,
 				},
 			},
 		},
@@ -216,7 +330,7 @@ func GetCommands() []*discordgo.ApplicationCommand {
 }
 
 // CreateInteractionHandler creates the interaction handler for commands
-func CreateInteractionHandler(database *sqlx.DB) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func CreateInteractionHandler(database *db.DB) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if i.Type != discordgo.InteractionApplicationCommand {
 			return
@@ -284,11 +398,29 @@ func CreateInteractionHandler(database *sqlx.DB) func(s *discordgo.Session, i *d
 		case "roster":
 			handleGetRoster(s, i, database, cfg)
 
+		case "merc":
+			handleMerc(s, i, database, cfg)
+
+		case "vacation":
+			handleVacation(s, i, database, cfg)
+
 		case "warstats":
 			handleWarStats(s, i, database, cfg)
 
+		case "warresults":
+			handleWarResults(s, i, database, cfg)
+
+		case "removewar":
+			handleRemoveWar(s, i, database, cfg)
+
 		case "addwar":
 			handleAddWar(s, i, database, cfg)
+
+		case "attendance":
+			handleAttendance(s, i, database, cfg)
+
+		case "checkattendance":
+			handleCheckAttendance(s, i, database, cfg)
 
 		default:
 			discord.RespondEphemeral(s, i, "Unknown command.")
