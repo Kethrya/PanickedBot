@@ -47,3 +47,11 @@ func NullIfEmpty(s string) any {
 	}
 	return s
 }
+
+// NullIfEmptyPtr returns nil if the string is empty, otherwise returns a pointer to the string
+func NullIfEmptyPtr(s string) *string {
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	return &s
+}

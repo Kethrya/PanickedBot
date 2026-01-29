@@ -38,7 +38,7 @@ func getDisplayNameForRoster(s *discordgo.Session, guildID string, member *inter
 	if member.DisplayName != nil && *member.DisplayName != "" {
 		return *member.DisplayName
 	}
-	
+
 	// Fallback to fetching from Discord if we have a user ID
 	if member.DiscordUserID != nil && *member.DiscordUserID != "" {
 		guildMember, err := s.GuildMember(guildID, *member.DiscordUserID)
@@ -51,7 +51,7 @@ func getDisplayNameForRoster(s *discordgo.Session, guildID string, member *inter
 		}
 		return *member.DiscordUserID
 	}
-	
+
 	// Final fallback: use family name
 	return member.FamilyName
 }
@@ -107,7 +107,7 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 	// Data rows
 	for _, member := range members {
 		discordName := truncateString(getDisplayNameForRoster(s, i.GuildID, &member), 20)
-		
+
 		familyName := truncateString(member.FamilyName, 20)
 
 		class := ""
@@ -147,10 +147,10 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 
 		currentLen := truncatedResponse.Len()
 		const closingLen = 3 // length of "```"
-		
+
 		for _, member := range members {
 			discordName := truncateString(getDisplayNameForRoster(s, i.GuildID, &member), 20)
-			
+
 			familyName := truncateString(member.FamilyName, 20)
 
 			class := ""
@@ -175,7 +175,7 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 			}
 
 			line := fmt.Sprintf("%-20s %-20s %-15s %-12s %6s %-9s\n", discordName, familyName, class, spec, gsStr, meetsCapStr)
-			
+
 			// Check if adding this line would exceed the limit
 			if currentLen+len(line)+closingLen > 1990 {
 				break

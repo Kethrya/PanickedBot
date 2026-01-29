@@ -18,7 +18,7 @@ type Member struct {
 	DisplayName    *string `db:"display_name"`
 	Class          *string `db:"class"`
 	Spec           *string `db:"spec"`
-	
+
 	// Combat stats
 	AP       *int     `db:"ap"`
 	AAP      *int     `db:"aap"`
@@ -30,7 +30,7 @@ type Member struct {
 	HP       *int     `db:"hp"`
 	TotalAP  *int     `db:"total_ap"`
 	TotalAAP *int     `db:"total_aap"`
-	
+
 	// Status flags
 	MeetsCap    bool `db:"meets_cap"`
 	IsException bool `db:"is_exception"`
@@ -119,7 +119,7 @@ func GetMemberByFamilyNameIncludingInactive(db *sqlx.DB, guildID, familyName str
 func UpdateMember(db *sqlx.DB, memberID int64, fields UpdateFields) error {
 	updates := []string{}
 	args := []interface{}{}
-	
+
 	if fields.FamilyName != nil {
 		updates = append(updates, "family_name = ?")
 		args = append(args, *fields.FamilyName)
@@ -152,22 +152,22 @@ func UpdateMember(db *sqlx.DB, memberID int64, fields UpdateFields) error {
 		updates = append(updates, "dp = ?")
 		args = append(args, *fields.DP)
 	}
-	
+
 	if len(updates) == 0 {
 		return fmt.Errorf("no fields to update")
 	}
-	
+
 	args = append(args, memberID)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	_, err := db.ExecContext(ctx, `
 		UPDATE roster_members 
 		SET `+strings.Join(updates, ", ")+`
 		WHERE id = ?
 	`, args...)
-	
+
 	return err
 }
 
@@ -175,16 +175,16 @@ func UpdateMember(db *sqlx.DB, memberID int64, fields UpdateFields) error {
 func CreateMember(db *sqlx.DB, guildID, discordUserID, familyName string) (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	result, err := db.ExecContext(ctx, `
 		INSERT INTO roster_members (discord_guild_id, discord_user_id, family_name, is_active)
 		VALUES (?, ?, ?, 1)
 	`, guildID, discordUserID, familyName)
-	
+
 	if err != nil {
 		return 0, err
 	}
-	
+
 	return result.LastInsertId()
 }
 
@@ -192,13 +192,13 @@ func CreateMember(db *sqlx.DB, guildID, discordUserID, familyName string) (int64
 func SetMemberActive(db *sqlx.DB, memberID int64, active bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	_, err := db.ExecContext(ctx, `
 		UPDATE roster_members 
 		SET is_active = ?
 		WHERE id = ?
 	`, active, memberID)
-	
+
 	return err
 }
 
@@ -249,7 +249,7 @@ func AssignMemberToTeams(db *sqlx.DB, memberID int64, teamIDs []int64) error {
 				uniqueTeamIDs = append(uniqueTeamIDs, teamID)
 			}
 		}
-		
+
 		// Add new team assignments
 		for _, teamID := range uniqueTeamIDs {
 			_, err = tx.ExecContext(ctx, `

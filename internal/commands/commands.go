@@ -100,28 +100,34 @@ func GetCommands() []*discordgo.ApplicationCommand {
 		},
 		{
 			Name:        "gear",
-			Description: "Update your gear stats (guild member role required)",
+			Description: "Update gear stats (your own or another member's if you're an officer)",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Name:        "ap",
-					Description: "Your Attack Power (AP)",
+					Description: "Attack Power (AP)",
 					Required:    true,
 					MinValue:    float64Ptr(0),
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Name:        "aap",
-					Description: "Your Awakening Attack Power (AAP)",
+					Description: "Awakening Attack Power (AAP)",
 					Required:    true,
 					MinValue:    float64Ptr(0),
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionInteger,
 					Name:        "dp",
-					Description: "Your Defense Power (DP)",
+					Description: "Defense Power (DP)",
 					Required:    true,
 					MinValue:    float64Ptr(0),
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "member",
+					Description: "Discord member to update (officers only, leave empty to update yourself)",
+					Required:    false,
 				},
 			},
 		},

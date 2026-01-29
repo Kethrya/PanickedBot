@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"strings"
+
 	"github.com/bwmarrin/discordgo"
 
 	"PanickedBot/internal"
@@ -8,6 +10,61 @@ import (
 
 // GuildConfig is a type alias for internal.GuildConfig for convenience
 type GuildConfig = internal.GuildConfig
+
+// validClasses is the list of valid Black Desert Online classes
+var validClasses = map[string]bool{
+	"Warrior":     true,
+	"Ranger":      true,
+	"Sorceress":   true,
+	"Berserker":   true,
+	"Tamer":       true,
+	"Musa":        true,
+	"Maehwa":      true,
+	"Valkyrie":    true,
+	"Kunoichi":    true,
+	"Ninja":       true,
+	"Wizard":      true,
+	"Witch":       true,
+	"Dark Knight": true,
+	"Striker":     true,
+	"Mystic":      true,
+	"Lahn":        true,
+	"Archer":      true,
+	"Shai":        true,
+	"Guardian":    true,
+	"Hashashin":   true,
+	"Nova":        true,
+	"Sage":        true,
+	"Corsair":     true,
+	"Drakania":    true,
+	"Woosa":       true,
+	"Maegu":       true,
+	"Scholar":     true,
+	"Seraph":      true,
+	"Wukong":      true,
+}
+
+// normalizeClassName converts a class name to the correct capitalization format
+// Only the first letter of each word should be capitalized
+func normalizeClassName(className string) string {
+	// Split by spaces for multi-word classes like "Dark Knight"
+	words := strings.Fields(className)
+	for i, word := range words {
+		if len(word) > 0 {
+			words[i] = strings.ToUpper(string(word[0])) + strings.ToLower(word[1:])
+		}
+	}
+	return strings.Join(words, " ")
+}
+
+// validateClassName checks if a class name is valid and returns the normalized name
+func validateClassName(className string) (string, bool) {
+	normalized := normalizeClassName(className)
+	if validClasses[normalized] {
+		return normalized, true
+	}
+	return "", false
+}
 
 // hasOfficerPermission checks if user has officer role or admin permissions
 func hasOfficerPermission(s *discordgo.Session, i *discordgo.InteractionCreate, cfg *GuildConfig) bool {

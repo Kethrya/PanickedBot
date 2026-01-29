@@ -1,17 +1,16 @@
 package commands
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/jmoiron/sqlx"
 
 	"PanickedBot/internal"
+	"PanickedBot/internal/db"
 	"PanickedBot/internal/discord"
 )
 
@@ -59,6 +58,16 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 	if !hasUpdates {
 		discord.RespondEphemeral(s, i, "Please provide at least one field to update.")
 		return
+	}
+
+	// Validate and normalize class name if provided
+	if class != "" {
+		normalizedClass, valid := validateClassName(class)
+		if !valid {
+			discord.RespondEphemeral(s, i, "Invalid class name. Please provide a valid Black Desert Online class.")
+			return
+		}
+		class = normalizedClass
 	}
 
 	// Get display name from Discord
@@ -121,10 +130,13 @@ func handleGear(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.
 	}
 
 	// Parse options
+	var targetUser *discordgo.User
 	var ap, aap, dp int64
 
 	for _, opt := range i.ApplicationCommandData().Options {
 		switch opt.Name {
+		case "member":
+			targetUser = opt.UserValue(s)
 		case "ap":
 			ap = opt.IntValue()
 		case "aap":
@@ -132,6 +144,26 @@ func handleGear(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.
 		case "dp":
 			dp = opt.IntValue()
 		}
+	}
+
+	// Determine if user is updating themselves or another member
+	isOfficer := hasOfficerPermission(s, i, cfg)
+	var userIDToUpdate string
+	var usernameToUpdate string
+
+	if targetUser != nil {
+		// User specified a member to update
+		// Check if they're trying to update someone else
+		if targetUser.ID != i.Member.User.ID && !isOfficer {
+			discord.RespondEphemeral(s, i, "Only officers can update another member's gear stats.")
+			return
+		}
+		userIDToUpdate = targetUser.ID
+		usernameToUpdate = targetUser.Username
+	} else {
+		// User is updating their own stats
+		userIDToUpdate = i.Member.User.ID
+		usernameToUpdate = i.Member.User.Username
 	}
 
 	// Validate non-negative values
@@ -149,31 +181,31 @@ func handleGear(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.
 	}
 
 	// Get display name from Discord
-	displayName := getDiscordDisplayName(s, i.GuildID, i.Member.User.ID)
+	displayName := getDiscordDisplayName(s, i.GuildID, userIDToUpdate)
 
 	// Get or create member record
-	m, err := internal.GetMemberByDiscordUserID(dbx, i.GuildID, i.Member.User.ID)
+	m, err := internal.GetMemberByDiscordUserID(dbx, i.GuildID, userIDToUpdate)
 	if err == sql.ErrNoRows {
 		// Create new member - use Discord username as default family name
-		memberID, err := internal.CreateMember(dbx, i.GuildID, i.Member.User.ID, i.Member.User.Username)
+		memberID, err := internal.CreateMember(dbx, i.GuildID, userIDToUpdate, usernameToUpdate)
 		if err != nil {
 			log.Printf("gear create error: %v", err)
-			discord.RespondEphemeral(s, i, "Failed to create your member record. Please try again.")
+			discord.RespondEphemeral(s, i, "Failed to create member record. Please try again.")
 			return
 		}
 
 		// Get the newly created member
-		m, err = internal.GetMemberByDiscordUserID(dbx, i.GuildID, i.Member.User.ID)
+		m, err = internal.GetMemberByDiscordUserID(dbx, i.GuildID, userIDToUpdate)
 		if err != nil {
 			log.Printf("gear lookup after create error: %v", err)
-			discord.RespondEphemeral(s, i, "Failed to update your gear stats. Please try again.")
+			discord.RespondEphemeral(s, i, "Failed to update gear stats. Please try again.")
 			return
 		}
 
-		log.Printf("Created new member ID %d for user %s", memberID, i.Member.User.Username)
+		log.Printf("Created new member ID %d for user %s", memberID, usernameToUpdate)
 	} else if err != nil {
 		log.Printf("gear lookup error: %v", err)
-		discord.RespondEphemeral(s, i, "Failed to update your gear stats. Please try again.")
+		discord.RespondEphemeral(s, i, "Failed to update gear stats. Please try again.")
 		return
 	}
 
@@ -193,13 +225,24 @@ func handleGear(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.
 	err = internal.UpdateMember(dbx, m.ID, fields)
 	if err != nil {
 		log.Printf("gear update error: %v", err)
-		discord.RespondEphemeral(s, i, "Failed to update your gear stats. Please try again.")
+		discord.RespondEphemeral(s, i, "Failed to update gear stats. Please try again.")
 		return
 	}
 
 	// Calculate and display GS
-	gs := (apInt + aapInt) / 2 + dpInt
-	discord.RespondText(s, i, fmt.Sprintf("Your gear stats have been updated successfully.\nAP: %d | AAP: %d | DP: %d | GS: %d", apInt, aapInt, dpInt, gs))
+	gs := (apInt+aapInt)/2 + dpInt
+
+	// Create appropriate response message
+	var responseMsg string
+	if targetUser != nil && targetUser.ID != i.Member.User.ID {
+		// Officer updated another member
+		responseMsg = fmt.Sprintf("Gear stats updated successfully for %s.\nAP: %d | AAP: %d | DP: %d | GS: %d", displayName, apInt, aapInt, dpInt, gs)
+	} else {
+		// User updated their own stats
+		responseMsg = fmt.Sprintf("Your gear stats have been updated successfully.\nAP: %d | AAP: %d | DP: %d | GS: %d", apInt, aapInt, dpInt, gs)
+	}
+
+	discord.RespondText(s, i, responseMsg)
 }
 
 func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.DB, cfg *GuildConfig) {
@@ -247,6 +290,16 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 		return
 	}
 
+	// Validate and normalize class name if provided
+	if class != "" {
+		normalizedClass, valid := validateClassName(class)
+		if !valid {
+			discord.RespondEphemeral(s, i, "Invalid class name. Please provide a valid Black Desert Online class.")
+			return
+		}
+		class = normalizedClass
+	}
+
 	// Get display name from Discord
 	displayName := getDiscordDisplayName(s, i.GuildID, targetUser.ID)
 
@@ -279,9 +332,6 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 	// Look up team IDs if team names provided
 	var teamIDs []int64
 	if teamsStr != "" {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
 		// Split comma-separated team names
 		teamNames := strings.Split(teamsStr, ",")
 		for idx, name := range teamNames {
@@ -294,15 +344,7 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 				continue
 			}
 
-			var teamData struct {
-				ID       int64 `db:"id"`
-				IsActive bool  `db:"is_active"`
-			}
-			err := dbx.GetContext(ctx, &teamData, `
-				SELECT id, is_active FROM `+"teams"+`
-				WHERE discord_guild_id = ? AND display_name = ?
-			`, i.GuildID, teamName)
-
+			team, err := db.GetTeamByName(dbx, i.GuildID, teamName)
 			if err == sql.ErrNoRows {
 				discord.RespondEphemeral(s, i, "Team '"+teamName+"' not found.")
 				return
@@ -312,12 +354,12 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 				return
 			}
 
-			if !teamData.IsActive {
+			if !team.IsActive {
 				discord.RespondEphemeral(s, i, "Team '"+teamName+"' is not active.")
 				return
 			}
 
-			teamIDs = append(teamIDs, teamData.ID)
+			teamIDs = append(teamIDs, team.ID)
 		}
 	}
 
