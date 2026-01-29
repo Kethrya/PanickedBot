@@ -249,14 +249,40 @@ func GetCommands() []*discordgo.ApplicationCommand {
 			Description: "Get war statistics for all roster members (officer role required)",
 		},
 		{
+			Name:        "warresults",
+			Description: "Get results of all wars from most recent to oldest (officer role required)",
+		},
+		{
+			Name:        "removewar",
+			Description: "Remove war data for a specific date (officer role required)",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "date",
+					Description: "War date in YYYY-MM-DD format",
+					Required:    true,
+				},
+			},
+		},
+		{
 			Name:        "addwar",
-			Description: "Import war data from a CSV file (officer role required)",
+			Description: "Import war data from a CSV or image file (officer role required)",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionAttachment,
-					Name:        "csv_file",
-					Description: "CSV file with war data (first line: date YYYY-mm-dd, rest: family_name,kills,deaths)",
+					Name:        "file",
+					Description: "CSV or image file (<5MB) with war data",
 					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "result",
+					Description: "War result",
+					Required:    true,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{Name: "Win", Value: "win"},
+						{Name: "Lose", Value: "lose"},
+					},
 				},
 			},
 		},
@@ -340,6 +366,12 @@ func CreateInteractionHandler(database *db.DB) func(s *discordgo.Session, i *dis
 
 		case "warstats":
 			handleWarStats(s, i, database, cfg)
+
+		case "warresults":
+			handleWarResults(s, i, database, cfg)
+
+		case "removewar":
+			handleRemoveWar(s, i, database, cfg)
 
 		case "addwar":
 			handleAddWar(s, i, database, cfg)

@@ -34,3 +34,6 @@ go.work.sum
 
 # sqlc generated files
 internal/db/sqlc/
+
+# uploads directory
+uploads/
