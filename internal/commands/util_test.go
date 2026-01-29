@@ -301,62 +301,62 @@ func TestValidateClassName(t *testing.T) {
 }
 
 func TestHasGuildMemberPermission(t *testing.T) {
-tests := []struct {
-name         string
-memberRoleID string
-userRoles    []string
-expected     bool
-}{
-{
-name:         "no guild member role configured",
-memberRoleID: "",
-userRoles:    []string{"role1", "role2"},
-expected:     false,
-},
-{
-name:         "user has guild member role",
-memberRoleID: "guild-role-123",
-userRoles:    []string{"role1", "guild-role-123", "role2"},
-expected:     true,
-},
-{
-name:         "user does not have guild member role",
-memberRoleID: "guild-role-123",
-userRoles:    []string{"role1", "role2"},
-expected:     false,
-},
-{
-name:         "user has no roles",
-memberRoleID: "guild-role-123",
-userRoles:    []string{},
-expected:     false,
-},
-{
-name:         "user has only guild member role",
-memberRoleID: "guild-role-123",
-userRoles:    []string{"guild-role-123"},
-expected:     true,
-},
-}
+	tests := []struct {
+		name         string
+		memberRoleID string
+		userRoles    []string
+		expected     bool
+	}{
+		{
+			name:         "no guild member role configured",
+			memberRoleID: "",
+			userRoles:    []string{"role1", "role2"},
+			expected:     false,
+		},
+		{
+			name:         "user has guild member role",
+			memberRoleID: "guild-role-123",
+			userRoles:    []string{"role1", "guild-role-123", "role2"},
+			expected:     true,
+		},
+		{
+			name:         "user does not have guild member role",
+			memberRoleID: "guild-role-123",
+			userRoles:    []string{"role1", "role2"},
+			expected:     false,
+		},
+		{
+			name:         "user has no roles",
+			memberRoleID: "guild-role-123",
+			userRoles:    []string{},
+			expected:     false,
+		},
+		{
+			name:         "user has only guild member role",
+			memberRoleID: "guild-role-123",
+			userRoles:    []string{"guild-role-123"},
+			expected:     true,
+		},
+	}
 
-for _, tt := range tests {
-t.Run(tt.name, func(t *testing.T) {
-cfg := &GuildConfig{
-GuildMemberRoleID: tt.memberRoleID,
-}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &GuildConfig{
+				GuildMemberRoleID: tt.memberRoleID,
+			}
 
-i := &discordgo.InteractionCreate{
-Interaction: &discordgo.Interaction{
-Member: &discordgo.Member{
-Roles: tt.userRoles,
-},
-},
-}
+			i := &discordgo.InteractionCreate{
+				Interaction: &discordgo.Interaction{
+					Member: &discordgo.Member{
+						Roles: tt.userRoles,
+					},
+				},
+			}
 
-result := hasGuildMemberPermission(i, cfg)
-if result != tt.expected {
-t.Errorf("expected %v, got %v", tt.expected, result)
-}
-})
-}
+			result := hasGuildMemberPermission(i, cfg)
+			if result != tt.expected {
+				t.Errorf("expected %v, got %v", tt.expected, result)
+			}
+		})
+	}
 }

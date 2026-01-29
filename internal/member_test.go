@@ -8,7 +8,7 @@ func TestUpdateFields_Validation(t *testing.T) {
 	// Test that UpdateFields can hold various field types
 	t.Run("all fields nil", func(t *testing.T) {
 		fields := UpdateFields{}
-		
+
 		if fields.FamilyName != nil {
 			t.Error("expected FamilyName to be nil")
 		}

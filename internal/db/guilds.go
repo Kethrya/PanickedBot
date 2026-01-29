@@ -47,11 +47,11 @@ func UpsertGuildAndConfig(db *DB, guildID, guildName, commandChannelID string, o
 
 	// Prepare config parameters
 	configParams := sqlcdb.UpsertConfigParams{
-		DiscordGuildID:   guildID,
-		CommandChannelID: sql.NullString{String: commandChannelID, Valid: commandChannelID != ""},
-		OfficerRoleID:    nullStringFromPtr(officerRoleID),
+		DiscordGuildID:    guildID,
+		CommandChannelID:  sql.NullString{String: commandChannelID, Valid: commandChannelID != ""},
+		OfficerRoleID:     nullStringFromPtr(officerRoleID),
 		GuildMemberRoleID: nullStringFromPtr(guildMemberRoleID),
-		MercenaryRoleID:  nullStringFromPtr(mercenaryRoleID),
+		MercenaryRoleID:   nullStringFromPtr(mercenaryRoleID),
 	}
 
 	// Upsert config row

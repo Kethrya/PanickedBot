@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	
+
 	"PanickedBot/internal/db"
 )
 

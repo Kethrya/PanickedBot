@@ -7,11 +7,11 @@ import (
 
 func TestLoadConfigFromEnv(t *testing.T) {
 	tests := []struct {
-		name           string
-		discordToken   string
-		databaseDSN    string
-		expectedError  bool
-		errorContains  string
+		name          string
+		discordToken  string
+		databaseDSN   string
+		expectedError bool
+		errorContains string
 	}{
 		{
 			name:          "valid configuration",
