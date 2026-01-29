@@ -60,7 +60,7 @@ func GetWeekPeriod(date time.Time) WeekPeriod {
 // GetWeekPeriodsBack returns a list of week periods going back N weeks from today
 func GetWeekPeriodsBack(weeksBack int) []WeekPeriod {
 	weeks := make([]WeekPeriod, 0, weeksBack)
-	now := time.Now()
+	now := time.Now().UTC()
 	
 	for i := 0; i < weeksBack; i++ {
 		// Calculate the date for this week
@@ -168,7 +168,8 @@ func (ac *AttendanceChecker) CheckAllMembersAttendance(guildID string, weeksBack
 	for _, member := range members {
 		attendance, err := ac.CheckMemberAttendance(guildID, member.ID, weeksBack)
 		if err != nil {
-			// Log error but continue with other members
+			// Log error with member details for debugging
+			fmt.Printf("Warning: failed to check attendance for member %d (%s): %v\n", member.ID, member.FamilyName, err)
 			continue
 		}
 
