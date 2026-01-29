@@ -24,6 +24,7 @@ import (
 func parseWarCSV(content io.Reader) (warDate time.Time, warLines []db.WarLineData, err error) {
 	reader := csv.NewReader(content)
 	reader.TrimLeadingSpace = true
+	reader.FieldsPerRecord = -1 // Allow variable number of fields per record
 
 	// Read first line (date)
 	dateRecord, err := reader.Read()

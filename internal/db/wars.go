@@ -117,11 +117,11 @@ func CreateWarFromCSV(db *sqlx.DB, guildID string, requestChannelID string, requ
 
 	// Create war_lines entries
 	for _, line := range warLines {
-		// Try to match the family name to a roster member
+		// Try to match the family name to a roster member (case insensitive)
 		var rosterMemberID sql.NullInt64
 		err := tx.GetContext(ctx, &rosterMemberID, `
 			SELECT id FROM roster_members
-			WHERE discord_guild_id = ? AND family_name = ?
+			WHERE discord_guild_id = ? AND LOWER(family_name) = LOWER(?)
 			LIMIT 1
 		`, guildID, line.FamilyName)
 
