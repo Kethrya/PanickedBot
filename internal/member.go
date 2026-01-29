@@ -14,11 +14,11 @@ type Member struct {
 	ID             int64   `db:"id"`
 	DiscordGuildID string  `db:"discord_guild_id"`
 	DiscordUserID  *string `db:"discord_user_id"`
-	BDOName        string  `db:"bdo_name"`
-	FamilyName     *string `db:"family_name"`
+	FamilyName     string  `db:"family_name"`
+	DisplayName    *string `db:"display_name"`
 	Class          *string `db:"class"`
 	Spec           *string `db:"spec"`
-	
+
 	// Combat stats
 	AP       *int     `db:"ap"`
 	AAP      *int     `db:"aap"`
@@ -30,7 +30,7 @@ type Member struct {
 	HP       *int     `db:"hp"`
 	TotalAP  *int     `db:"total_ap"`
 	TotalAAP *int     `db:"total_aap"`
-	
+
 	// Status flags
 	MeetsCap    bool `db:"meets_cap"`
 	IsException bool `db:"is_exception"`
@@ -39,21 +39,22 @@ type Member struct {
 
 // UpdateFields represents fields that can be updated
 type UpdateFields struct {
-	FamilyName *string
-	Class      *string
-	Spec       *string
-	TeamIDs    []int64 // For multiple team assignments
-	MeetsCap   *bool
-	AP         *int
-	AAP        *int
-	DP         *int
+	FamilyName  *string
+	DisplayName *string
+	Class       *string
+	Spec        *string
+	TeamIDs     []int64 // For multiple team assignments
+	MeetsCap    *bool
+	AP          *int
+	AAP         *int
+	DP          *int
 }
 
 // GetMemberByDiscordUserID retrieves a member by Discord user ID
 func GetMemberByDiscordUserID(db *sqlx.DB, guildID, userID string) (*Member, error) {
 	var m Member
 	err := db.Get(&m, `
-		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
+		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
 		       class, spec, ap, aap, dp, evasion, dr, drr, 
 		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
 		FROM roster_members 
@@ -69,7 +70,7 @@ func GetMemberByDiscordUserID(db *sqlx.DB, guildID, userID string) (*Member, err
 func GetMemberByFamilyName(db *sqlx.DB, guildID, familyName string) (*Member, error) {
 	var m Member
 	err := db.Get(&m, `
-		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
+		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
 		       class, spec, ap, aap, dp, evasion, dr, drr, 
 		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
 		FROM roster_members 
@@ -85,7 +86,7 @@ func GetMemberByFamilyName(db *sqlx.DB, guildID, familyName string) (*Member, er
 func GetMemberByDiscordUserIDIncludingInactive(db *sqlx.DB, guildID, userID string) (*Member, error) {
 	var m Member
 	err := db.Get(&m, `
-		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
+		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
 		       class, spec, ap, aap, dp, evasion, dr, drr, 
 		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
 		FROM roster_members 
@@ -101,7 +102,7 @@ func GetMemberByDiscordUserIDIncludingInactive(db *sqlx.DB, guildID, userID stri
 func GetMemberByFamilyNameIncludingInactive(db *sqlx.DB, guildID, familyName string) (*Member, error) {
 	var m Member
 	err := db.Get(&m, `
-		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
+		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
 		       class, spec, ap, aap, dp, evasion, dr, drr, 
 		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
 		FROM roster_members 
@@ -118,10 +119,14 @@ func GetMemberByFamilyNameIncludingInactive(db *sqlx.DB, guildID, familyName str
 func UpdateMember(db *sqlx.DB, memberID int64, fields UpdateFields) error {
 	updates := []string{}
 	args := []interface{}{}
-	
+
 	if fields.FamilyName != nil {
 		updates = append(updates, "family_name = ?")
 		args = append(args, *fields.FamilyName)
+	}
+	if fields.DisplayName != nil {
+		updates = append(updates, "display_name = ?")
+		args = append(args, *fields.DisplayName)
 	}
 	if fields.Class != nil {
 		updates = append(updates, "class = ?")
@@ -147,39 +152,39 @@ func UpdateMember(db *sqlx.DB, memberID int64, fields UpdateFields) error {
 		updates = append(updates, "dp = ?")
 		args = append(args, *fields.DP)
 	}
-	
+
 	if len(updates) == 0 {
 		return fmt.Errorf("no fields to update")
 	}
-	
+
 	args = append(args, memberID)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	_, err := db.ExecContext(ctx, `
 		UPDATE roster_members 
 		SET `+strings.Join(updates, ", ")+`
 		WHERE id = ?
 	`, args...)
-	
+
 	return err
 }
 
 // CreateMember creates a new roster member
-func CreateMember(db *sqlx.DB, guildID, discordUserID, bdoName string) (int64, error) {
+func CreateMember(db *sqlx.DB, guildID, discordUserID, familyName string) (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	result, err := db.ExecContext(ctx, `
-		INSERT INTO roster_members (discord_guild_id, discord_user_id, bdo_name, is_active)
+		INSERT INTO roster_members (discord_guild_id, discord_user_id, family_name, is_active)
 		VALUES (?, ?, ?, 1)
-	`, guildID, discordUserID, bdoName)
-	
+	`, guildID, discordUserID, familyName)
+
 	if err != nil {
 		return 0, err
 	}
-	
+
 	return result.LastInsertId()
 }
 
@@ -187,13 +192,13 @@ func CreateMember(db *sqlx.DB, guildID, discordUserID, bdoName string) (int64, e
 func SetMemberActive(db *sqlx.DB, memberID int64, active bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	_, err := db.ExecContext(ctx, `
 		UPDATE roster_members 
 		SET is_active = ?
 		WHERE id = ?
 	`, active, memberID)
-	
+
 	return err
 }
 
@@ -201,12 +206,12 @@ func SetMemberActive(db *sqlx.DB, memberID int64, active bool) error {
 func GetAllRosterMembers(db *sqlx.DB, guildID string) ([]Member, error) {
 	var members []Member
 	err := db.Select(&members, `
-		SELECT id, discord_guild_id, discord_user_id, bdo_name, family_name, 
+		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
 		       class, spec, ap, aap, dp, evasion, dr, drr, 
 		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
 		FROM roster_members 
 		WHERE discord_guild_id = ? AND is_active = 1
-		ORDER BY bdo_name
+		ORDER BY family_name
 	`, guildID)
 	if err != nil {
 		return nil, err
@@ -234,9 +239,19 @@ func AssignMemberToTeams(db *sqlx.DB, memberID int64, teamIDs []int64) error {
 		return err
 	}
 
-	// Add new team assignments
+	// Deduplicate team IDs
 	if len(teamIDs) > 0 {
+		seen := make(map[int64]bool)
+		uniqueTeamIDs := []int64{}
 		for _, teamID := range teamIDs {
+			if !seen[teamID] {
+				seen[teamID] = true
+				uniqueTeamIDs = append(uniqueTeamIDs, teamID)
+			}
+		}
+
+		// Add new team assignments
+		for _, teamID := range uniqueTeamIDs {
 			_, err = tx.ExecContext(ctx, `
 				INSERT INTO member_teams (roster_member_id, team_id)
 				VALUES (?, ?)

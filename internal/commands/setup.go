@@ -1,13 +1,11 @@
 package commands
 
 import (
-	"context"
-	"time"
-
 	"github.com/bwmarrin/discordgo"
 	"github.com/jmoiron/sqlx"
 
 	"PanickedBot/internal"
+	"PanickedBot/internal/db"
 	"PanickedBot/internal/discord"
 )
 
@@ -92,52 +90,23 @@ func handleSetup(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx
 
 	// Fetch guild name (best effort)
 	guildName := ""
-	if g, err := s.State.Guild(i.GuildID); err == nil && g != nil {
+	if g, errGet := s.State.Guild(i.GuildID); errGet == nil && g != nil {
 		guildName = g.Name
-	} else if g, err := s.Guild(i.GuildID); err == nil && g != nil {
+	} else if g, errGet := s.Guild(i.GuildID); errGet == nil && g != nil {
 		guildName = g.Name
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	tx, err := dbx.BeginTxx(ctx, nil)
+	// Upsert guild and config
+	err = db.UpsertGuildAndConfig(
+		dbx,
+		i.GuildID,
+		guildName,
+		commandChannelID,
+		internal.NullIfEmptyPtr(officerRoleID),
+		internal.NullIfEmptyPtr(guildMemberRoleID),
+		internal.NullIfEmptyPtr(mercenaryRoleID),
+	)
 	if err != nil {
-		discord.RespondEphemeral(s, i, "Failed to save configuration. Please try again.")
-		return
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	// Upsert guild row (keeps latest name if provided)
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO guilds (discord_guild_id, name)
-		VALUES (?, ?)
-		ON DUPLICATE KEY UPDATE
-			name = COALESCE(VALUES(name), name)
-	`, i.GuildID, internal.NullIfEmpty(guildName))
-	if err != nil {
-		discord.RespondEphemeral(s, i, "Failed to save configuration. Please try again.")
-		return
-	}
-
-	// Upsert config row
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO config (discord_guild_id, command_channel_id,
-		                    officer_role_id, guild_member_role_id, mercenary_role_id)
-		VALUES (?, ?, ?, ?, ?)
-		ON DUPLICATE KEY UPDATE
-			command_channel_id   = VALUES(command_channel_id),
-			officer_role_id      = VALUES(officer_role_id),
-			guild_member_role_id = VALUES(guild_member_role_id),
-			mercenary_role_id    = VALUES(mercenary_role_id)
-	`, i.GuildID, commandChannelID,
-		internal.NullIfEmpty(officerRoleID), internal.NullIfEmpty(guildMemberRoleID), internal.NullIfEmpty(mercenaryRoleID))
-	if err != nil {
-		discord.RespondEphemeral(s, i, "Failed to save configuration. Please try again.")
-		return
-	}
-
-	if err := tx.Commit(); err != nil {
 		discord.RespondEphemeral(s, i, "Failed to save configuration. Please try again.")
 		return
 	}
