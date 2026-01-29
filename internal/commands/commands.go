@@ -250,12 +250,12 @@ func GetCommands() []*discordgo.ApplicationCommand {
 		},
 		{
 			Name:        "addwar",
-			Description: "Import war data from a CSV file (officer role required)",
+			Description: "Import war data from a CSV or image file (officer role required)",
 			Options: []*discordgo.ApplicationCommandOption{
 				{
 					Type:        discordgo.ApplicationCommandOptionAttachment,
-					Name:        "csv_file",
-					Description: "CSV file with war data (first line: date YYYY-mm-dd, rest: family_name,kills,deaths)",
+					Name:        "file",
+					Description: "CSV or image file (<5MB) with war data",
 					Required:    true,
 				},
 			},

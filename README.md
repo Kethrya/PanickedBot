@@ -17,7 +17,7 @@ A Discord bot for Black Desert Online (BDO) guilds to manage wars, roster member
 
 ## Features
 
-- **Guild War Management**: Import and track war statistics from CSV files
+- **Guild War Management**: Import and track war statistics from CSV files or images (using OpenAI vision API)
 - **Roster Management**: Manage guild member information, gear stats, and activity status
 - **Team Management**: Create and manage teams for organized play
 - **War Statistics**: View detailed K/D ratios and participation stats
@@ -64,6 +64,7 @@ Set the required environment variables:
 ```bash
 export DISCORD_BOT_TOKEN="your-bot-token"
 export DATABASE_DSN="user:password@tcp(localhost:3306)/database?parseTime=true"
+export OPENAI_API_KEY="your-openai-api-key"  # Optional, required for image upload in /addwar
 ```
 
 Or create a `.env` file (not committed to git):
@@ -71,6 +72,7 @@ Or create a `.env` file (not committed to git):
 ```bash
 DISCORD_BOT_TOKEN=your-bot-token
 DATABASE_DSN=user:password@tcp(localhost:3306)/database?parseTime=true
+OPENAI_API_KEY=your-openai-api-key  # Optional, required for image upload in /addwar
 ```
 
 ## Building
@@ -113,6 +115,7 @@ go build -o PanickedBot .
 
 - `DISCORD_BOT_TOKEN` (required) - Your Discord bot token
 - `DATABASE_DSN` (required) - MySQL connection string format: `user:password@tcp(host:port)/database?parseTime=true`
+- `OPENAI_API_KEY` (optional) - OpenAI API key for image processing in `/addwar` command
 
 ### Database Connection String Format
 
@@ -221,10 +224,10 @@ The bot will:
 ### War Management
 
 #### `/addwar`
-**Description:** Import war data from a CSV file  
+**Description:** Import war data from a CSV or image file  
 **Required Role:** Officer Role  
 **Parameters:**
-- `csv_file` (required) - CSV file with war data
+- `file` (required) - CSV or image file (<5MB for images, <10MB for CSV) with war data
 
 **CSV Format:**
 ```
@@ -235,6 +238,16 @@ FamilyName2,15,8
 ```
 - First line: Date in YYYY-MM-DD format
 - Following lines: family_name,kills,deaths
+
+**Image Format:**
+- Supported formats: PNG, JPG, JPEG, WEBP
+- Maximum size: 5MB
+- Screenshot should contain:
+  - War date at the top
+  - Family names in the leftmost column
+  - Kills and deaths in the two rightmost columns
+- Requires `OPENAI_API_KEY` environment variable to be set
+- Images are automatically saved to the `uploads/` directory with Discord user ID and timestamp
 
 #### `/warstats`
 **Description:** Get war statistics for all roster members  

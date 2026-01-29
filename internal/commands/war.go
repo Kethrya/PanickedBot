@@ -1,17 +1,23 @@
 package commands
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/csv"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 
 	"PanickedBot/internal/db"
 	"PanickedBot/internal/discord"
@@ -93,6 +99,98 @@ func parseWarCSV(content io.Reader) (warDate time.Time, warLines []db.WarLineDat
 	return warDate, warLines, nil
 }
 
+// saveImage saves an uploaded image to the uploads directory
+func saveImage(imageData []byte, discordUserID string, filename string) (string, error) {
+	uploadsDir := "uploads"
+	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create uploads directory: %w", err)
+	}
+
+	// Generate filename with timestamp and Discord user ID
+	timestamp := time.Now().Format("20060102_150405")
+	ext := filepath.Ext(filename)
+	savedFilename := fmt.Sprintf("%s_%s%s", discordUserID, timestamp, ext)
+	savedPath := filepath.Join(uploadsDir, savedFilename)
+
+	// Write the file
+	if err := os.WriteFile(savedPath, imageData, 0644); err != nil {
+		return "", fmt.Errorf("failed to save image: %w", err)
+	}
+
+	return savedPath, nil
+}
+
+// processImageWithOpenAI sends an image to OpenAI API and extracts war data
+func processImageWithOpenAI(imageData []byte, mimeType string) (warDate time.Time, warLines []db.WarLineData, err error) {
+	apiKey := os.Getenv("OPENAI_API_KEY")
+	if apiKey == "" {
+		return time.Time{}, nil, fmt.Errorf("OPENAI_API_KEY environment variable not set")
+	}
+
+	client := openai.NewClient(option.WithAPIKey(apiKey))
+
+	// Encode image as base64
+	imageBase64 := fmt.Sprintf("data:%s;base64,%s", mimeType, encodeBase64(imageData))
+
+	// Create the prompt for OpenAI
+	prompt := `Extract the war statistics from this screenshot and return them in CSV format.
+
+The screenshot contains war data with the following information:
+- The date of the war is at the top of the screenshot
+- The leftmost column contains family names
+- The last two columns (rightmost) contain kills and deaths
+- All other columns should be ignored
+
+Please return the data in this exact CSV format:
+First line: date in YYYY-MM-DD format
+Following lines: family_name,kills,deaths
+
+Example output:
+2024-01-15
+FamilyName1,10,5
+FamilyName2,15,8
+
+Return ONLY the CSV data, no explanation or additional text.`
+
+	ctx := context.Background()
+	chatCompletion, err := client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
+		Messages: []openai.ChatCompletionMessageParamUnion{
+			{
+				OfUser: &openai.ChatCompletionUserMessageParam{
+					Content: openai.ChatCompletionUserMessageParamContentUnion{
+						OfArrayOfContentParts: []openai.ChatCompletionContentPartUnionParam{
+							openai.TextContentPart(prompt),
+							openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
+								URL: imageBase64,
+							}),
+						},
+					},
+				},
+			},
+		},
+		Model:     openai.ChatModelGPT4o,
+		MaxTokens: openai.Int(1000),
+	})
+
+	if err != nil {
+		return time.Time{}, nil, fmt.Errorf("OpenAI API error: %w", err)
+	}
+
+	if len(chatCompletion.Choices) == 0 {
+		return time.Time{}, nil, fmt.Errorf("no response from OpenAI API")
+	}
+
+	csvContent := chatCompletion.Choices[0].Message.Content
+	
+	// Parse the CSV content returned by OpenAI
+	return parseWarCSV(strings.NewReader(csvContent))
+}
+
+// encodeBase64 encodes data to base64 string
+func encodeBase64(data []byte) string {
+	return base64.StdEncoding.EncodeToString(data)
+}
+
 func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, cfg *GuildConfig) {
 	if !hasOfficerPermission(s, i, cfg) {
 		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
@@ -101,7 +199,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 
 	// Get the attachment
 	if len(i.ApplicationCommandData().Resolved.Attachments) == 0 {
-		discord.RespondEphemeral(s, i, "Please attach a CSV file with war data.")
+		discord.RespondEphemeral(s, i, "Please attach a CSV or image file with war data.")
 		return
 	}
 
@@ -117,16 +215,28 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 		return
 	}
 
-	// Check if it's a CSV file
-	if !strings.HasSuffix(strings.ToLower(attachment.Filename), ".csv") {
-		discord.RespondEphemeral(s, i, "File must be a CSV file (.csv extension).")
+	// Determine file type
+	filename := strings.ToLower(attachment.Filename)
+	isCSV := strings.HasSuffix(filename, ".csv")
+	isImage := strings.HasSuffix(filename, ".png") || strings.HasSuffix(filename, ".jpg") || 
+		strings.HasSuffix(filename, ".jpeg") || strings.HasSuffix(filename, ".webp")
+
+	if !isCSV && !isImage {
+		discord.RespondEphemeral(s, i, "File must be a CSV file (.csv) or an image file (.png, .jpg, .jpeg, .webp).")
 		return
 	}
 
-	// Check file size (limit to 10MB)
-	const maxFileSize = 10 * 1024 * 1024 // 10 MB
+	// Check file size
+	maxFileSize := 10 * 1024 * 1024 // 10 MB for CSV
+	if isImage {
+		maxFileSize = 5 * 1024 * 1024 // 5 MB for images
+	}
 	if attachment.Size > maxFileSize {
-		discord.RespondEphemeral(s, i, "File size exceeds 10MB limit.")
+		if isImage {
+			discord.RespondEphemeral(s, i, "Image file size exceeds 5MB limit.")
+		} else {
+			discord.RespondEphemeral(s, i, "CSV file size exceeds 10MB limit.")
+		}
 		return
 	}
 
@@ -145,7 +255,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 	req, err := http.NewRequestWithContext(ctx, "GET", attachment.URL, nil)
 	if err != nil {
 		log.Printf("addwar request creation error: %v", err)
-		discord.RespondEphemeral(s, i, "Failed to download the CSV file. Please try again.")
+		discord.RespondEphemeral(s, i, "Failed to download the file. Please try again.")
 		return
 	}
 
@@ -157,31 +267,66 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("addwar download error: %v", err)
-		discord.RespondEphemeral(s, i, "Failed to download the CSV file. Please try again.")
+		discord.RespondEphemeral(s, i, "Failed to download the file. Please try again.")
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("addwar download failed with status: %d", resp.StatusCode)
-		discord.RespondEphemeral(s, i, "Failed to download the CSV file. Please try again.")
+		discord.RespondEphemeral(s, i, "Failed to download the file. Please try again.")
 		return
 	}
 
 	// Limit the response body size as an additional safety measure
-	limitedReader := io.LimitReader(resp.Body, maxFileSize)
-
-	// Parse the CSV
-	warDate, warLines, err := parseWarCSV(limitedReader)
+	limitedReader := io.LimitReader(resp.Body, int64(maxFileSize))
+	
+	// Read the file content
+	fileContent, err := io.ReadAll(limitedReader)
 	if err != nil {
-		log.Printf("addwar parse error: %v", err)
-		// Truncate error message to avoid exposing too much detail
-		errMsg := err.Error()
-		if len(errMsg) > 200 {
-			errMsg = errMsg[:200] + "..."
-		}
-		discord.RespondEphemeral(s, i, fmt.Sprintf("Failed to parse CSV file: %s", errMsg))
+		log.Printf("addwar read error: %v", err)
+		discord.RespondEphemeral(s, i, "Failed to read the file. Please try again.")
 		return
+	}
+
+	var warDate time.Time
+	var warLines []db.WarLineData
+
+	if isImage {
+		// Save the image locally
+		savedPath, err := saveImage(fileContent, i.Member.User.ID, attachment.Filename)
+		if err != nil {
+			log.Printf("addwar save image error: %v", err)
+			discord.RespondEphemeral(s, i, "Failed to save the image. Please try again.")
+			return
+		}
+		log.Printf("Image saved to: %s", savedPath)
+
+		// Process image with OpenAI
+		warDate, warLines, err = processImageWithOpenAI(fileContent, attachment.ContentType)
+		if err != nil {
+			log.Printf("addwar image processing error: %v", err)
+			// Truncate error message to avoid exposing too much detail
+			errMsg := err.Error()
+			if len(errMsg) > 200 {
+				errMsg = errMsg[:200] + "..."
+			}
+			discord.RespondEphemeral(s, i, fmt.Sprintf("Failed to process image: %s", errMsg))
+			return
+		}
+	} else {
+		// Parse CSV
+		warDate, warLines, err = parseWarCSV(bytes.NewReader(fileContent))
+		if err != nil {
+			log.Printf("addwar parse error: %v", err)
+			// Truncate error message to avoid exposing too much detail
+			errMsg := err.Error()
+			if len(errMsg) > 200 {
+				errMsg = errMsg[:200] + "..."
+			}
+			discord.RespondEphemeral(s, i, fmt.Sprintf("Failed to parse CSV file: %s", errMsg))
+			return
+		}
 	}
 
 	// Create the war entry
