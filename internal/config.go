@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/jmoiron/sqlx"
+	"PanickedBot/internal/db"
 )
 
 // Config holds application configuration
@@ -39,9 +39,9 @@ func LoadConfigFromEnv() (Config, error) {
 }
 
 // LoadGuildConfig loads guild-specific configuration from database
-func LoadGuildConfig(db *sqlx.DB, guildID string) (*GuildConfig, error) {
+func LoadGuildConfig(dbx *db.DB, guildID string) (*GuildConfig, error) {
 	var cfg GuildConfig
-	err := db.Get(&cfg, `
+	err := dbx.Get(&cfg, `
 		SELECT officer_role_id, guild_member_role_id, mercenary_role_id, 
 		       command_channel_id
 		FROM config

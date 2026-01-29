@@ -4,13 +4,12 @@ import (
 	"log"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/jmoiron/sqlx"
 
 	"PanickedBot/internal/db"
 	"PanickedBot/internal/discord"
 )
 
-func handleAddTeam(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.DB, cfg *GuildConfig) {
+func handleAddTeam(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, cfg *GuildConfig) {
 	if !hasOfficerPermission(s, i, cfg) {
 		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
 		return
@@ -48,7 +47,7 @@ func handleAddTeam(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sq
 	}
 }
 
-func handleDeleteTeam(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.DB, cfg *GuildConfig) {
+func handleDeleteTeam(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, cfg *GuildConfig) {
 	if !hasOfficerPermission(s, i, cfg) {
 		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
 		return

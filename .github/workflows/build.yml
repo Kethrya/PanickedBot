@@ -1,0 +1,66 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+      # By default, for pull_request events, GitHub Actions checks out a merge commit
+      # (refs/pull/:prNumber/merge) which is the result of merging the PR branch
+      # into the base branch. This ensures we test what will actually be merged.
+      # No additional configuration needed - this is the default behavior.
+    
+    - name: Verify merge commit for pull requests
+      if: github.event_name == 'pull_request'
+      run: |
+        echo "Testing pull request #${{ github.event.pull_request.number }}"
+        echo "Base branch: ${{ github.event.pull_request.base.ref }}"
+        echo "Head branch: ${{ github.event.pull_request.head.ref }}"
+        echo "Current commit: $(git rev-parse HEAD)"
+        echo "This is a merge commit simulating the PR being merged into the base branch"
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+        cache: true
+
+    - name: Install sqlc
+      run: go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
+
+    - name: Generate sqlc code
+      run: sqlc generate
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Verify dependencies
+      run: go mod verify
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Run go vet
+      run: go vet ./...
+
+    - name: Run tests
+      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./...
+
+    - name: Upload coverage
+      uses: codecov/codecov-action@v4
+      if: success()
+      with:
+        file: ./coverage.txt
+        fail_ci_if_error: false

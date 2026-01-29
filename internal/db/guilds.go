@@ -2,9 +2,10 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"time"
 
-	"github.com/jmoiron/sqlx"
+	sqlcdb "PanickedBot/internal/db/sqlc"
 )
 
 // GuildConfig represents guild configuration
@@ -16,7 +17,7 @@ type GuildConfig struct {
 }
 
 // UpsertGuildAndConfig creates or updates guild and configuration in a transaction
-func UpsertGuildAndConfig(db *sqlx.DB, guildID, guildName, commandChannelID string, officerRoleID, guildMemberRoleID, mercenaryRoleID *string) error {
+func UpsertGuildAndConfig(db *DB, guildID, guildName, commandChannelID string, officerRoleID, guildMemberRoleID, mercenaryRoleID *string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -26,39 +27,46 @@ func UpsertGuildAndConfig(db *sqlx.DB, guildID, guildName, commandChannelID stri
 	}
 	defer func() { _ = tx.Rollback() }()
 
-	// Prepare guild name value (nil if empty)
-	var guildNameValue interface{}
-	if guildName == "" {
-		guildNameValue = nil
-	} else {
-		guildNameValue = guildName
+	// Create queries with transaction
+	qtx := db.Queries.WithTx(tx.Tx)
+
+	// Prepare guild name value
+	var guildNameValue sql.NullString
+	if guildName != "" {
+		guildNameValue = sql.NullString{String: guildName, Valid: true}
 	}
 
-	// Upsert guild row (keeps latest name if provided)
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO guilds (discord_guild_id, name)
-		VALUES (?, ?)
-		ON DUPLICATE KEY UPDATE
-			name = COALESCE(VALUES(name), name)
-	`, guildID, guildNameValue)
+	// Upsert guild row
+	err = qtx.UpsertGuild(ctx, sqlcdb.UpsertGuildParams{
+		DiscordGuildID: guildID,
+		Name:           guildNameValue,
+	})
 	if err != nil {
 		return err
 	}
 
+	// Prepare config parameters
+	configParams := sqlcdb.UpsertConfigParams{
+		DiscordGuildID:   guildID,
+		CommandChannelID: sql.NullString{String: commandChannelID, Valid: commandChannelID != ""},
+		OfficerRoleID:    nullStringFromPtr(officerRoleID),
+		GuildMemberRoleID: nullStringFromPtr(guildMemberRoleID),
+		MercenaryRoleID:  nullStringFromPtr(mercenaryRoleID),
+	}
+
 	// Upsert config row
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO config (discord_guild_id, command_channel_id,
-		                    officer_role_id, guild_member_role_id, mercenary_role_id)
-		VALUES (?, ?, ?, ?, ?)
-		ON DUPLICATE KEY UPDATE
-			command_channel_id   = VALUES(command_channel_id),
-			officer_role_id      = VALUES(officer_role_id),
-			guild_member_role_id = VALUES(guild_member_role_id),
-			mercenary_role_id    = VALUES(mercenary_role_id)
-	`, guildID, commandChannelID, officerRoleID, guildMemberRoleID, mercenaryRoleID)
+	err = qtx.UpsertConfig(ctx, configParams)
 	if err != nil {
 		return err
 	}
 
 	return tx.Commit()
+}
+
+// Helper function to convert *string to sql.NullString
+func nullStringFromPtr(s *string) sql.NullString {
+	if s == nil {
+		return sql.NullString{Valid: false}
+	}
+	return sql.NullString{String: *s, Valid: true}
 }

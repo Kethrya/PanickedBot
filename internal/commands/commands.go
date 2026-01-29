@@ -6,9 +6,9 @@ import (
 	"log"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/jmoiron/sqlx"
 
 	"PanickedBot/internal"
+	"PanickedBot/internal/db"
 	"PanickedBot/internal/discord"
 )
 
@@ -216,7 +216,7 @@ func GetCommands() []*discordgo.ApplicationCommand {
 }
 
 // CreateInteractionHandler creates the interaction handler for commands
-func CreateInteractionHandler(database *sqlx.DB) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func CreateInteractionHandler(database *db.DB) func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	return func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if i.Type != discordgo.InteractionApplicationCommand {
 			return

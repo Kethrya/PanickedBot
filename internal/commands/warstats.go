@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/jmoiron/sqlx"
 
 	"PanickedBot/internal/db"
 	"PanickedBot/internal/discord"
@@ -46,7 +45,7 @@ func formatWarStatLine(stat db.WarStats) string {
 		familyName, totalWarsStr, mostRecentStr, killsStr, deathsStr, kdStr)
 }
 
-func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.DB, cfg *GuildConfig) {
+func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, cfg *GuildConfig) {
 	if !hasOfficerPermission(s, i, cfg) {
 		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
 		return
