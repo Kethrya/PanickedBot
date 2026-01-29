@@ -60,6 +60,16 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 		return
 	}
 
+	// Validate and normalize class name if provided
+	if class != "" {
+		normalizedClass, valid := validateClassName(class)
+		if !valid {
+			discord.RespondEphemeral(s, i, "Invalid class name. Please provide a valid Black Desert Online class.")
+			return
+		}
+		class = normalizedClass
+	}
+
 	// Get display name from Discord
 	displayName := getDiscordDisplayName(s, i.GuildID, i.Member.User.ID)
 
@@ -143,7 +153,8 @@ func handleGear(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.
 
 	if targetUser != nil {
 		// User specified a member to update
-		if !isOfficer {
+		// Check if they're trying to update someone else
+		if targetUser.ID != i.Member.User.ID && !isOfficer {
 			discord.RespondEphemeral(s, i, "Only officers can update another member's gear stats.")
 			return
 		}
@@ -277,6 +288,16 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 	if !hasUpdates {
 		discord.RespondEphemeral(s, i, "Please provide at least one field to update.")
 		return
+	}
+
+	// Validate and normalize class name if provided
+	if class != "" {
+		normalizedClass, valid := validateClassName(class)
+		if !valid {
+			discord.RespondEphemeral(s, i, "Invalid class name. Please provide a valid Black Desert Online class.")
+			return
+		}
+		class = normalizedClass
 	}
 
 	// Get display name from Discord
