@@ -32,24 +32,32 @@ func calculateGS(ap, aap, dp *int) int {
 }
 
 // getDisplayNameForRoster returns the display name for a roster member
-// Uses cached display_name from database if available, otherwise falls back to Discord API
-func getDisplayNameForRoster(s *discordgo.Session, guildID string, member *internal.Member) string {
-	// Use cached display name if available
-	if member.DisplayName != nil && *member.DisplayName != "" {
-		return *member.DisplayName
-	}
-
-	// Fallback to fetching from Discord if we have a user ID
+// Uses the provided guildMembersMap for efficient lookups, falls back to cached data
+func getDisplayNameForRoster(guildMembersMap map[string]*discordgo.Member, member *internal.Member) string {
+	// Try to get from the guild members map if we have a user ID
 	if member.DiscordUserID != nil && *member.DiscordUserID != "" {
-		guildMember, err := s.GuildMember(guildID, *member.DiscordUserID)
-		if err == nil && guildMember != nil {
+		if guildMember, ok := guildMembersMap[*member.DiscordUserID]; ok {
+			// Priority order: server nickname > global display name > username
 			if guildMember.Nick != "" {
 				return guildMember.Nick
-			} else if guildMember.User != nil && guildMember.User.Username != "" {
-				return guildMember.User.Username
+			} else if guildMember.User != nil {
+				if guildMember.User.GlobalName != "" {
+					return guildMember.User.GlobalName
+				} else if guildMember.User.Username != "" {
+					return guildMember.User.Username
+				}
 			}
 		}
+		// If not found in guild members map, fall back to cached display name if available
+		if member.DisplayName != nil && *member.DisplayName != "" {
+			return *member.DisplayName
+		}
 		return *member.DiscordUserID
+	}
+
+	// If no Discord user ID, try cached display name
+	if member.DisplayName != nil && *member.DisplayName != "" {
+		return *member.DisplayName
 	}
 
 	// Final fallback: use family name
@@ -88,6 +96,38 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 		return
 	}
 
+	// Batch fetch all guild members to avoid N+1 API calls
+	// This fetches all members in the guild efficiently
+	guildMembersMap := make(map[string]*discordgo.Member)
+	after := ""
+	for {
+		guildMembers, err := s.GuildMembers(i.GuildID, after, 1000)
+		if err != nil {
+			log.Printf("getroster error: failed to fetch guild members: %v", err)
+			// Continue with cached data if Discord API fails
+			break
+		}
+		if len(guildMembers) == 0 {
+			break
+		}
+		for _, gm := range guildMembers {
+			if gm.User != nil {
+				guildMembersMap[gm.User.ID] = gm
+			}
+		}
+		if len(guildMembers) < 1000 {
+			break
+		}
+		// For pagination, use the last member's ID as the 'after' parameter
+		lastMember := guildMembers[len(guildMembers)-1]
+		if lastMember.User != nil {
+			after = lastMember.User.ID
+		} else {
+			// If the last member has no user, we can't paginate further
+			break
+		}
+	}
+
 	// Sort members by GS (higher first)
 	sort.Slice(members, func(i, j int) bool {
 		gsI := calculateGS(members[i].AP, members[i].AAP, members[i].DP)
@@ -106,7 +146,7 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 
 	// Data rows
 	for _, member := range members {
-		discordName := truncateString(getDisplayNameForRoster(s, i.GuildID, &member), 20)
+		discordName := truncateString(getDisplayNameForRoster(guildMembersMap, &member), 20)
 
 		familyName := truncateString(member.FamilyName, 20)
 
@@ -149,7 +189,7 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 		const closingLen = 3 // length of "```"
 
 		for _, member := range members {
-			discordName := truncateString(getDisplayNameForRoster(s, i.GuildID, &member), 20)
+			discordName := truncateString(getDisplayNameForRoster(guildMembersMap, &member), 20)
 
 			familyName := truncateString(member.FamilyName, 20)
 

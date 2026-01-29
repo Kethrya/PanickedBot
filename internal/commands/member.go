@@ -19,11 +19,15 @@ func getDiscordDisplayName(s *discordgo.Session, guildID string, userID string) 
 	// Try to get the guild member to fetch their current display name
 	guildMember, err := s.GuildMember(guildID, userID)
 	if err == nil && guildMember != nil {
-		// Use display name (nickname) if set, otherwise use username
+		// Priority order: server nickname > global display name > username
 		if guildMember.Nick != "" {
 			return guildMember.Nick
-		} else if guildMember.User != nil && guildMember.User.Username != "" {
-			return guildMember.User.Username
+		} else if guildMember.User != nil {
+			if guildMember.User.GlobalName != "" {
+				return guildMember.User.GlobalName
+			} else if guildMember.User.Username != "" {
+				return guildMember.User.Username
+			}
 		}
 	}
 
