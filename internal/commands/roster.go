@@ -103,7 +103,7 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 	for {
 		guildMembers, err := s.GuildMembers(i.GuildID, after, 1000)
 		if err != nil {
-			log.Printf("getroster: failed to fetch guild members: %v", err)
+			log.Printf("getroster error: failed to fetch guild members: %v", err)
 			// Continue with cached data if Discord API fails
 			break
 		}
@@ -111,13 +111,21 @@ func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 			break
 		}
 		for _, gm := range guildMembers {
-			guildMembersMap[gm.User.ID] = gm
+			if gm.User != nil {
+				guildMembersMap[gm.User.ID] = gm
+			}
 		}
 		if len(guildMembers) < 1000 {
 			break
 		}
 		// For pagination, use the last member's ID as the 'after' parameter
-		after = guildMembers[len(guildMembers)-1].User.ID
+		lastMember := guildMembers[len(guildMembers)-1]
+		if lastMember.User != nil {
+			after = lastMember.User.ID
+		} else {
+			// If the last member has no user, we can't paginate further
+			break
+		}
 	}
 
 	// Sort members by GS (higher first)
