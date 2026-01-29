@@ -314,7 +314,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 
 	// Get the attachment
 	if len(i.ApplicationCommandData().Resolved.Attachments) == 0 {
-		discord.RespondEphemeral(s, i, "Please attach a CSV or image file with war data.")
+		discord.RespondText(s, i, "Please attach a CSV or image file with war data.")
 		return
 	}
 
@@ -326,7 +326,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 	}
 
 	if attachment == nil {
-		discord.RespondEphemeral(s, i, "No attachment found.")
+		discord.RespondText(s, i, "No attachment found.")
 		return
 	}
 
@@ -337,7 +337,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 		strings.HasSuffix(filename, ".jpeg") || strings.HasSuffix(filename, ".webp")
 
 	if !isCSV && !isImage {
-		discord.RespondEphemeral(s, i, "File must be a CSV file (.csv) or an image file (.png, .jpg, .jpeg, .webp).")
+		discord.RespondText(s, i, "File must be a CSV file (.csv) or an image file (.png, .jpg, .jpeg, .webp).")
 		return
 	}
 
@@ -348,9 +348,9 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 	}
 	if attachment.Size > maxFileSize {
 		if isImage {
-			discord.RespondEphemeral(s, i, "Image file size exceeds 5MB limit.")
+			discord.RespondText(s, i, "Image file size exceeds 5MB limit.")
 		} else {
-			discord.RespondEphemeral(s, i, "CSV file size exceeds 10MB limit.")
+			discord.RespondText(s, i, "CSV file size exceeds 10MB limit.")
 		}
 		return
 	}
@@ -359,7 +359,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 	if !strings.HasPrefix(attachment.URL, "https://cdn.discordapp.com/") &&
 		!strings.HasPrefix(attachment.URL, "https://media.discordapp.net/") {
 		log.Printf("addwar: suspicious attachment URL: %s", attachment.URL)
-		discord.RespondEphemeral(s, i, "Invalid attachment source.")
+		discord.RespondText(s, i, "Invalid attachment source.")
 		return
 	}
 
