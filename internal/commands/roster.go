@@ -43,10 +43,15 @@ func getDisplayNameForRoster(s *discordgo.Session, guildID string, member *inter
 	if member.DiscordUserID != nil && *member.DiscordUserID != "" {
 		guildMember, err := s.GuildMember(guildID, *member.DiscordUserID)
 		if err == nil && guildMember != nil {
+			// Priority order: server nickname > global display name > username
 			if guildMember.Nick != "" {
 				return guildMember.Nick
-			} else if guildMember.User != nil && guildMember.User.Username != "" {
-				return guildMember.User.Username
+			} else if guildMember.User != nil {
+				if guildMember.User.GlobalName != "" {
+					return guildMember.User.GlobalName
+				} else if guildMember.User.Username != "" {
+					return guildMember.User.Username
+				}
 			}
 		}
 		return *member.DiscordUserID
