@@ -115,10 +115,10 @@ func (q *Queries) GetRosterMemberByFamilyName(ctx context.Context, arg GetRoster
 const getWarStats = `-- name: GetWarStats :many
 SELECT 
     rm.family_name,
-    COUNT(DISTINCT CASE WHEN w.id IS NOT NULL THEN w.id END) as total_wars,
+    CAST(COUNT(DISTINCT CASE WHEN w.id IS NOT NULL THEN w.id END) AS UNSIGNED) as total_wars,
     MAX(CASE WHEN w.id IS NOT NULL THEN w.war_date END) as most_recent_war,
-    COALESCE(SUM(CASE WHEN w.id IS NOT NULL THEN wl.kills ELSE 0 END), 0) as total_kills,
-    COALESCE(SUM(CASE WHEN w.id IS NOT NULL THEN wl.deaths ELSE 0 END), 0) as total_deaths
+    CAST(COALESCE(SUM(CASE WHEN w.id IS NOT NULL THEN wl.kills ELSE 0 END), 0) AS SIGNED) as total_kills,
+    CAST(COALESCE(SUM(CASE WHEN w.id IS NOT NULL THEN wl.deaths ELSE 0 END), 0) AS SIGNED) as total_deaths
 FROM roster_members rm
 LEFT JOIN war_lines wl ON rm.id = wl.roster_member_id
 LEFT JOIN wars w ON wl.war_id = w.id AND w.is_excluded = 0
@@ -132,8 +132,8 @@ type GetWarStatsRow struct {
 	FamilyName    string      `db:"family_name" json:"family_name"`
 	TotalWars     int64       `db:"total_wars" json:"total_wars"`
 	MostRecentWar interface{} `db:"most_recent_war" json:"most_recent_war"`
-	TotalKills    interface{} `db:"total_kills" json:"total_kills"`
-	TotalDeaths   interface{} `db:"total_deaths" json:"total_deaths"`
+	TotalKills    int64       `db:"total_kills" json:"total_kills"`
+	TotalDeaths   int64       `db:"total_deaths" json:"total_deaths"`
 }
 
 func (q *Queries) GetWarStats(ctx context.Context, discordGuildID string) ([]GetWarStatsRow, error) {

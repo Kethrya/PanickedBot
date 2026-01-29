@@ -1,10 +1,10 @@
 -- name: GetWarStats :many
 SELECT 
     rm.family_name,
-    COUNT(DISTINCT CASE WHEN w.id IS NOT NULL THEN w.id END) as total_wars,
+    CAST(COUNT(DISTINCT CASE WHEN w.id IS NOT NULL THEN w.id END) AS UNSIGNED) as total_wars,
     MAX(CASE WHEN w.id IS NOT NULL THEN w.war_date END) as most_recent_war,
-    COALESCE(SUM(CASE WHEN w.id IS NOT NULL THEN wl.kills ELSE 0 END), 0) as total_kills,
-    COALESCE(SUM(CASE WHEN w.id IS NOT NULL THEN wl.deaths ELSE 0 END), 0) as total_deaths
+    CAST(COALESCE(SUM(CASE WHEN w.id IS NOT NULL THEN wl.kills ELSE 0 END), 0) AS SIGNED) as total_kills,
+    CAST(COALESCE(SUM(CASE WHEN w.id IS NOT NULL THEN wl.deaths ELSE 0 END), 0) AS SIGNED) as total_deaths
 FROM roster_members rm
 LEFT JOIN war_lines wl ON rm.id = wl.roster_member_id
 LEFT JOIN wars w ON wl.war_id = w.id AND w.is_excluded = 0

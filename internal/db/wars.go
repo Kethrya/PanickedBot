@@ -31,25 +31,17 @@ func GetWarStats(db *DB, guildID string) ([]WarStats, error) {
 	stats := make([]WarStats, 0, len(rows))
 	for _, row := range rows {
 		stat := WarStats{
-			FamilyName: row.FamilyName,
-			TotalWars:  int(row.TotalWars),
+			FamilyName:  row.FamilyName,
+			TotalWars:   int(row.TotalWars),
+			TotalKills:  int(row.TotalKills),
+			TotalDeaths: int(row.TotalDeaths),
 		}
 
-		// Handle most_recent_war which comes as interface{} from sqlc
+		// Handle most_recent_war which can be NULL (returned as interface{})
 		if row.MostRecentWar != nil {
 			if t, ok := row.MostRecentWar.(time.Time); ok {
 				stat.MostRecentWar = &t
 			}
-		}
-
-		// Handle total_kills which comes as interface{} from sqlc
-		if kills, ok := row.TotalKills.(int64); ok {
-			stat.TotalKills = int(kills)
-		}
-
-		// Handle total_deaths which comes as interface{} from sqlc
-		if deaths, ok := row.TotalDeaths.(int64); ok {
-			stat.TotalDeaths = int(deaths)
 		}
 
 		stats = append(stats, stat)
