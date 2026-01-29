@@ -132,6 +132,27 @@ func processImageWithOpenAI(imageData []byte, mimeType string) (warDate time.Tim
 	// Encode image as base64
 	imageBase64 := fmt.Sprintf("data:%s;base64,%s", mimeType, encodeBase64(imageData))
 
+	// First, check if the image passes moderation
+	ctx := context.Background()
+	moderationResp, err := client.Moderations.New(ctx, openai.ModerationNewParams{
+		Model: openai.ModerationModelOmniModerationLatest,
+		Input: openai.ModerationNewParamsInputUnion{
+			OfModerationMultiModalArray: []openai.ModerationMultiModalInputUnionParam{
+				openai.ModerationMultiModalInputParamOfImageURL(openai.ModerationImageURLInputImageURLParam{
+					URL: imageBase64,
+				}),
+			},
+		},
+	})
+	if err != nil {
+		return time.Time{}, nil, fmt.Errorf("moderation API error: %w", err)
+	}
+
+	// Check if the image was flagged as unsafe
+	if len(moderationResp.Results) > 0 && moderationResp.Results[0].Flagged {
+		return time.Time{}, nil, fmt.Errorf("image failed moderation check - image may contain harmful or unsafe content")
+	}
+
 	// Create the prompt for OpenAI
 	prompt := `Extract the war statistics from this screenshot and return them in CSV format.
 
@@ -152,7 +173,7 @@ FamilyName2,15,8
 
 Return ONLY the CSV data, no explanation or additional text.`
 
-	ctx := context.Background()
+	// Now extract war stats from the image using vision API
 	chatCompletion, err := client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
 		Messages: []openai.ChatCompletionMessageParamUnion{
 			{
