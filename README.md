@@ -1,6 +1,6 @@
 # PanickedBot
 
-A Discord bot for Black Desert Online (BDO) guilds to manage wars, roster members, team assignments, and track war statistics.
+A Discord bot **explicitly designed for tracking Black Desert Online (BDO) guilds and wars**. It helps guilds manage wars, roster members, team assignments, and track war statistics.
 
 ## Table of Contents
 
@@ -202,6 +202,17 @@ The bot will:
 **Parameters:**
 - `member` (optional) - Discord member to mark as inactive
 - `family_name` (optional) - Family name of member to mark as inactive
+
+#### `/vacation`
+**Description:** Add a vacation period for a member  
+**Required Role:** Officer Role  
+**Parameters:**
+- `member` (required) - Discord member going on vacation
+- `start_date` (required) - Vacation start date in YYYY-MM-DD format (e.g., 2024-12-25)
+- `end_date` (required) - Vacation end date in YYYY-MM-DD format (e.g., 2024-12-31)
+- `reason` (optional) - Optional reason for vacation
+
+**Note:** End date must be on or after start date. This helps track member availability during guild wars.
 
 #### `/roster`
 **Description:** Get all roster member information  
