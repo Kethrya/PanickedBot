@@ -215,6 +215,36 @@ func GetCommands() []*discordgo.ApplicationCommand {
 			},
 		},
 		{
+			Name:        "vacation",
+			Description: "Add a vacation period for a member (officer role required)",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "member",
+					Description: "Discord member going on vacation",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "start_date",
+					Description: "Vacation start date (YYYY-MM-DD)",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "end_date",
+					Description: "Vacation end date (YYYY-MM-DD)",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "reason",
+					Description: "Optional reason for vacation",
+					Required:    false,
+				},
+			},
+		},
+		{
 			Name:        "warstats",
 			Description: "Get war statistics for all roster members (officer role required)",
 		},
@@ -304,6 +334,9 @@ func CreateInteractionHandler(database *db.DB) func(s *discordgo.Session, i *dis
 
 		case "merc":
 			handleMerc(s, i, database, cfg)
+
+		case "vacation":
+			handleVacation(s, i, database, cfg)
 
 		case "warstats":
 			handleWarStats(s, i, database, cfg)
