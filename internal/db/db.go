@@ -8,7 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	_ "github.com/go-sql-driver/mysql"
-	
+
 	sqlcdb "PanickedBot/internal/db/sqlc"
 )
 
