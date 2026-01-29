@@ -286,6 +286,46 @@ func GetCommands() []*discordgo.ApplicationCommand {
 				},
 			},
 		},
+		{
+			Name:        "attendance",
+			Description: "Get all members with attendance problems (officer role required)",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "weeks",
+					Description: "Number of weeks to check (default: 4)",
+					Required:    false,
+					MinValue:    float64Ptr(1),
+					MaxValue:    52,
+				},
+			},
+		},
+		{
+			Name:        "checkattendance",
+			Description: "Check attendance for a specific member (officer role required)",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "member",
+					Description: "Discord member to check",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "family_name",
+					Description: "Family name of member to check",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionInteger,
+					Name:        "weeks",
+					Description: "Number of weeks to check (default: 4)",
+					Required:    false,
+					MinValue:    float64Ptr(1),
+					MaxValue:    52,
+				},
+			},
+		},
 	}
 }
 
@@ -375,6 +415,12 @@ func CreateInteractionHandler(database *db.DB) func(s *discordgo.Session, i *dis
 
 		case "addwar":
 			handleAddWar(s, i, database, cfg)
+
+		case "attendance":
+			handleAttendance(s, i, database, cfg)
+
+		case "checkattendance":
+			handleCheckAttendance(s, i, database, cfg)
 
 		default:
 			discord.RespondEphemeral(s, i, "Unknown command.")

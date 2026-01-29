@@ -1,9 +1,6 @@
 package internal
 
 import (
-	"context"
-	"fmt"
-	"strings"
 	"time"
 
 	"PanickedBot/internal/db"
@@ -11,307 +8,210 @@ import (
 
 // Member represents a roster member
 type Member struct {
-	ID             int64   `db:"id"`
-	DiscordGuildID string  `db:"discord_guild_id"`
-	DiscordUserID  *string `db:"discord_user_id"`
-	FamilyName     string  `db:"family_name"`
-	DisplayName    *string `db:"display_name"`
-	Class          *string `db:"class"`
-	Spec           *string `db:"spec"`
+	ID             int64
+	DiscordGuildID string
+	DiscordUserID  *string
+	FamilyName     string
+	DisplayName    *string
+	Class          *string
+	Spec           *string
 
 	// Combat stats
-	AP       *int     `db:"ap"`
-	AAP      *int     `db:"aap"`
-	DP       *int     `db:"dp"`
-	Evasion  *int     `db:"evasion"`
-	DR       *int     `db:"dr"`
-	DRR      *float64 `db:"drr"`
-	Accuracy *int     `db:"accuracy"`
-	HP       *int     `db:"hp"`
-	TotalAP  *int     `db:"total_ap"`
-	TotalAAP *int     `db:"total_aap"`
+	AP       *int
+	AAP      *int
+	DP       *int
+	Evasion  *int
+	DR       *int
+	DRR      *float64
+	Accuracy *int
+	HP       *int
+	TotalAP  *int
+	TotalAAP *int
 
 	// Status flags
-	MeetsCap     bool `db:"meets_cap"`
-	IsException  bool `db:"is_exception"`
-	IsMercenary  bool `db:"is_mercenary"`
-	IsActive     bool `db:"is_active"`
+	MeetsCap    bool
+	IsException bool
+	IsMercenary bool
+	IsActive    bool
+	CreatedAt   time.Time
 }
 
 // UpdateFields represents fields that can be updated
-type UpdateFields struct {
-	FamilyName  *string
-	DisplayName *string
-	Class       *string
-	Spec        *string
-	TeamIDs     []int64 // For multiple team assignments
-	MeetsCap    *bool
-	AP          *int
-	AAP         *int
-	DP          *int
-}
+type UpdateFields = db.UpdateFields
 
 // GetMemberByDiscordUserID retrieves a member by Discord user ID
-func GetMemberByDiscordUserID(db *db.DB, guildID, userID string) (*Member, error) {
-	var m Member
-	err := db.Get(&m, `
-		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
-		       class, spec, ap, aap, dp, evasion, dr, drr, 
-		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_mercenary, is_active
-		FROM roster_members 
-		WHERE discord_guild_id = ? AND discord_user_id = ? AND is_active = 1
-	`, guildID, userID)
+func GetMemberByDiscordUserID(database *db.DB, guildID, userID string) (*Member, error) {
+	m, err := db.GetMemberByDiscordUserID(database, guildID, userID)
 	if err != nil {
 		return nil, err
 	}
-	return &m, nil
+	return convertFromDBMember(m), nil
 }
 
 // GetMemberByFamilyName retrieves a member by BDO family name
-func GetMemberByFamilyName(db *db.DB, guildID, familyName string) (*Member, error) {
-	var m Member
-	err := db.Get(&m, `
-		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
-		       class, spec, ap, aap, dp, evasion, dr, drr, 
-		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_mercenary, is_active
-		FROM roster_members 
-		WHERE discord_guild_id = ? AND family_name = ? AND is_active = 1
-	`, guildID, familyName)
+func GetMemberByFamilyName(database *db.DB, guildID, familyName string) (*Member, error) {
+	m, err := db.GetMemberByFamilyName(database, guildID, familyName)
 	if err != nil {
 		return nil, err
 	}
-	return &m, nil
+	return convertFromDBMember(m), nil
 }
 
 // GetMemberByDiscordUserIDIncludingInactive retrieves a member by Discord user ID, including inactive members
-func GetMemberByDiscordUserIDIncludingInactive(db *db.DB, guildID, userID string) (*Member, error) {
-	var m Member
-	err := db.Get(&m, `
-		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
-		       class, spec, ap, aap, dp, evasion, dr, drr, 
-		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_mercenary, is_active
-		FROM roster_members 
-		WHERE discord_guild_id = ? AND discord_user_id = ?
-	`, guildID, userID)
+func GetMemberByDiscordUserIDIncludingInactive(database *db.DB, guildID, userID string) (*Member, error) {
+	m, err := db.GetMemberByDiscordUserIDIncludingInactive(database, guildID, userID)
 	if err != nil {
 		return nil, err
 	}
-	return &m, nil
+	return convertFromDBMember(m), nil
 }
 
 // GetMemberByFamilyNameIncludingInactive retrieves a member by BDO family name, including inactive members
-func GetMemberByFamilyNameIncludingInactive(db *db.DB, guildID, familyName string) (*Member, error) {
-	var m Member
-	err := db.Get(&m, `
-		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
-		       class, spec, ap, aap, dp, evasion, dr, drr, 
-		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_mercenary, is_active
-		FROM roster_members 
-		WHERE discord_guild_id = ? AND family_name = ?
-	`, guildID, familyName)
+func GetMemberByFamilyNameIncludingInactive(database *db.DB, guildID, familyName string) (*Member, error) {
+	m, err := db.GetMemberByFamilyNameIncludingInactive(database, guildID, familyName)
 	if err != nil {
 		return nil, err
 	}
-	return &m, nil
+	return convertFromDBMember(m), nil
 }
 
 // UpdateMember updates member fields
-// Note: TeamIDs is handled separately via AssignMemberToTeams and is not processed here
-func UpdateMember(db *db.DB, memberID int64, fields UpdateFields) error {
-	updates := []string{}
-	args := []interface{}{}
-
-	if fields.FamilyName != nil {
-		updates = append(updates, "family_name = ?")
-		args = append(args, *fields.FamilyName)
-	}
-	if fields.DisplayName != nil {
-		updates = append(updates, "display_name = ?")
-		args = append(args, *fields.DisplayName)
-	}
-	if fields.Class != nil {
-		updates = append(updates, "class = ?")
-		args = append(args, *fields.Class)
-	}
-	if fields.Spec != nil {
-		updates = append(updates, "spec = ?")
-		args = append(args, *fields.Spec)
-	}
-	if fields.MeetsCap != nil {
-		updates = append(updates, "meets_cap = ?")
-		args = append(args, *fields.MeetsCap)
-	}
-	if fields.AP != nil {
-		updates = append(updates, "ap = ?")
-		args = append(args, *fields.AP)
-	}
-	if fields.AAP != nil {
-		updates = append(updates, "aap = ?")
-		args = append(args, *fields.AAP)
-	}
-	if fields.DP != nil {
-		updates = append(updates, "dp = ?")
-		args = append(args, *fields.DP)
-	}
-
-	if len(updates) == 0 {
-		return fmt.Errorf("no fields to update")
-	}
-
-	args = append(args, memberID)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, err := db.ExecContext(ctx, `
-		UPDATE roster_members 
-		SET `+strings.Join(updates, ", ")+`
-		WHERE id = ?
-	`, args...)
-
-	return err
+func UpdateMember(database *db.DB, memberID int64, fields UpdateFields) error {
+	return db.UpdateMember(database, memberID, fields)
 }
 
 // CreateMember creates a new roster member
-func CreateMember(db *db.DB, guildID, discordUserID, familyName string) (int64, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	result, err := db.ExecContext(ctx, `
-		INSERT INTO roster_members (discord_guild_id, discord_user_id, family_name, is_active)
-		VALUES (?, ?, ?, 1)
-	`, guildID, discordUserID, familyName)
-
-	if err != nil {
-		return 0, err
-	}
-
-	return result.LastInsertId()
+func CreateMember(database *db.DB, guildID, discordUserID, familyName string) (int64, error) {
+	return db.CreateMember(database, guildID, discordUserID, familyName)
 }
 
 // SetMemberActive sets the is_active flag for a member
-func SetMemberActive(db *db.DB, memberID int64, active bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, err := db.ExecContext(ctx, `
-		UPDATE roster_members 
-		SET is_active = ?
-		WHERE id = ?
-	`, active, memberID)
-
-	return err
+func SetMemberActive(database *db.DB, memberID int64, active bool) error {
+	return db.SetMemberActive(database, memberID, active)
 }
 
 // SetMemberMercenary sets the is_mercenary flag for a member
-func SetMemberMercenary(db *db.DB, memberID int64, mercenary bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	_, err := db.ExecContext(ctx, `
-		UPDATE roster_members 
-		SET is_mercenary = ?
-		WHERE id = ?
-	`, mercenary, memberID)
-
-	return err
+func SetMemberMercenary(database *db.DB, memberID int64, mercenary bool) error {
+	return db.SetMemberMercenary(database, memberID, mercenary)
 }
 
 // GetAllRosterMembers retrieves all active roster members for a guild, excluding mercenaries
-func GetAllRosterMembers(db *db.DB, guildID string) ([]Member, error) {
-	var members []Member
-	err := db.Select(&members, `
-		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
-		       class, spec, ap, aap, dp, evasion, dr, drr, 
-		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_mercenary, is_active
-		FROM roster_members 
-		WHERE discord_guild_id = ? AND is_active = 1 AND is_mercenary = 0
-		ORDER BY family_name
-	`, guildID)
+func GetAllRosterMembers(database *db.DB, guildID string) ([]Member, error) {
+	members, err := db.GetAllActiveMembers(database, guildID)
 	if err != nil {
 		return nil, err
 	}
-	return members, nil
+
+	result := make([]Member, len(members))
+	for i, m := range members {
+		result[i] = *convertFromDBMember(&m)
+	}
+
+	return result, nil
 }
 
 // AssignMemberToTeams assigns a member to multiple teams (replaces all existing team assignments)
-func AssignMemberToTeams(db *db.DB, memberID int64, teamIDs []int64) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	tx, err := db.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	// Remove all existing team assignments
-	_, err = tx.ExecContext(ctx, `
-		DELETE FROM member_teams
-		WHERE roster_member_id = ?
-	`, memberID)
-	if err != nil {
-		return err
-	}
-
-	// Deduplicate team IDs
-	if len(teamIDs) > 0 {
-		seen := make(map[int64]bool)
-		uniqueTeamIDs := []int64{}
-		for _, teamID := range teamIDs {
-			if !seen[teamID] {
-				seen[teamID] = true
-				uniqueTeamIDs = append(uniqueTeamIDs, teamID)
-			}
-		}
-
-		// Add new team assignments
-		for _, teamID := range uniqueTeamIDs {
-			_, err = tx.ExecContext(ctx, `
-				INSERT INTO member_teams (roster_member_id, team_id)
-				VALUES (?, ?)
-			`, memberID, teamID)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	return tx.Commit()
+func AssignMemberToTeams(database *db.DB, memberID int64, teamIDs []int64) error {
+	return db.AssignMemberToTeams(database, memberID, teamIDs)
 }
 
 // GetMemberTeamIDs retrieves all team IDs for a member
-func GetMemberTeamIDs(db *db.DB, memberID int64) ([]int64, error) {
-	var teamIDs []int64
-	err := db.Select(&teamIDs, `
-		SELECT team_id
-		FROM member_teams
-		WHERE roster_member_id = ?
-		ORDER BY assigned_at
-	`, memberID)
-	if err != nil {
-		return nil, err
-	}
-	return teamIDs, nil
+func GetMemberTeamIDs(database *db.DB, memberID int64) ([]int64, error) {
+	return db.GetMemberTeamIDs(database, memberID)
 }
 
 // GetMemberTeamNames retrieves team names for a member as a comma-separated string
-func GetMemberTeamNames(db *db.DB, guildID string, memberID int64) (string, error) {
-	var teamNames []string
-	err := db.Select(&teamNames, `
-		SELECT t.display_name
-		FROM member_teams mt
-		JOIN teams t ON mt.team_id = t.id
-		WHERE mt.roster_member_id = ? 
-		  AND t.discord_guild_id = ?
-		  AND t.is_active = 1
-		ORDER BY mt.assigned_at
-	`, memberID, guildID)
-	if err != nil {
-		return "", err
+func GetMemberTeamNames(database *db.DB, guildID string, memberID int64) (string, error) {
+	return db.GetMemberTeamNames(database, guildID, memberID)
+}
+
+// Helper function to convert from db.Member to internal.Member
+func convertFromDBMember(m *db.Member) *Member {
+	var discordUserID *string
+	if m.DiscordUserID.Valid {
+		discordUserID = &m.DiscordUserID.String
 	}
-	if len(teamNames) == 0 {
-		return "", nil
+
+	var displayName *string
+	if m.DisplayName.Valid {
+		displayName = &m.DisplayName.String
 	}
-	return strings.Join(teamNames, ", "), nil
+
+	var class *string
+	if m.Class.Valid {
+		class = &m.Class.String
+	}
+
+	var spec *string
+	if m.Spec.Valid {
+		spec = &m.Spec.String
+	}
+
+	var ap, aap, dp, evasion, dr, accuracy, hp, totalAP, totalAAP *int
+	if m.AP.Valid {
+		val := int(m.AP.Int32)
+		ap = &val
+	}
+	if m.AAP.Valid {
+		val := int(m.AAP.Int32)
+		aap = &val
+	}
+	if m.DP.Valid {
+		val := int(m.DP.Int32)
+		dp = &val
+	}
+	if m.Evasion.Valid {
+		val := int(m.Evasion.Int32)
+		evasion = &val
+	}
+	if m.DR.Valid {
+		val := int(m.DR.Int32)
+		dr = &val
+	}
+	if m.Accuracy.Valid {
+		val := int(m.Accuracy.Int32)
+		accuracy = &val
+	}
+	if m.HP.Valid {
+		val := int(m.HP.Int32)
+		hp = &val
+	}
+	if m.TotalAP.Valid {
+		val := int(m.TotalAP.Int32)
+		totalAP = &val
+	}
+	if m.TotalAAP.Valid {
+		val := int(m.TotalAAP.Int32)
+		totalAAP = &val
+	}
+
+	var drr *float64
+	if m.DRR.Valid {
+		drr = &m.DRR.Float64
+	}
+
+	return &Member{
+		ID:             m.ID,
+		DiscordGuildID: m.DiscordGuildID,
+		DiscordUserID:  discordUserID,
+		FamilyName:     m.FamilyName,
+		DisplayName:    displayName,
+		Class:          class,
+		Spec:           spec,
+		AP:             ap,
+		AAP:            aap,
+		DP:             dp,
+		Evasion:        evasion,
+		DR:             dr,
+		DRR:            drr,
+		Accuracy:       accuracy,
+		HP:             hp,
+		TotalAP:        totalAP,
+		TotalAAP:       totalAAP,
+		MeetsCap:       m.MeetsCap,
+		IsException:    m.IsException,
+		IsMercenary:    m.IsMercenary,
+		IsActive:       m.IsActive,
+		CreatedAt:      m.CreatedAt,
+	}
 }

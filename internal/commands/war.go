@@ -23,6 +23,30 @@ import (
 	"PanickedBot/internal/discord"
 )
 
+// cleanCSVContent removes markdown code blocks and blank lines from CSV content
+func cleanCSVContent(content string) string {
+	lines := strings.Split(content, "\n")
+	var cleaned []string
+	
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		
+		// Skip blank lines
+		if trimmed == "" {
+			continue
+		}
+		
+		// Skip markdown code block markers
+		if trimmed == "```" || trimmed == "```csv" || strings.HasPrefix(trimmed, "```") {
+			continue
+		}
+		
+		cleaned = append(cleaned, trimmed)
+	}
+	
+	return strings.Join(cleaned, "\n")
+}
+
 // parseWarCSV parses a CSV file with war data
 // First line: date in YYYY-mm-dd format
 // Remaining lines: family_name, kills, deaths
@@ -200,26 +224,21 @@ func processImageWithOpenAI(imageData []byte, mimeType string) (warDate time.Tim
 	}
 
 	// Create the prompt for OpenAI
-	prompt := `Extract the war statistics from this screenshot and return them in CSV format.
-
-The screenshot contains war data with the following information:
-- The date of the war is at the top of the screenshot
-- The leftmost column contains family names
-- The last two columns (rightmost) contain kills and deaths
-- All other columns should be ignored
-
-IMPORTANT: The date MUST be returned in YYYY-MM-DD format (e.g., 2025-03-20), regardless of how it appears in the screenshot. If the date is in a different format (e.g., MM/DD/YYYY, DD-MM-YYYY), convert it to YYYY-MM-DD format.
-
-Please return the data in this exact CSV format:
-First line: date in YYYY-MM-DD format
-Following lines: family_name,kills,deaths
-
-Example output:
-2025-03-20
-FamilyName1,10,5
-FamilyName2,15,8
-
-Return ONLY the CSV data, no explanation or additional text.`
+	prompt := "Extract the war statistics from this screenshot and return them in CSV format.\n\n" +
+		"The screenshot contains war data with the following information:\n" +
+		"- The date of the war is at the top of the screenshot\n" +
+		"- The leftmost column contains family names\n" +
+		"- The last two columns (rightmost) contain kills and deaths\n" +
+		"- All other columns should be ignored\n\n" +
+		"IMPORTANT: The date MUST be returned in YYYY-MM-DD format (e.g., 2025-03-20), regardless of how it appears in the screenshot. If the date is in a different format (e.g., MM/DD/YYYY, DD-MM-YYYY), convert it to YYYY-MM-DD format.\n\n" +
+		"Please return the data in this exact CSV format:\n" +
+		"First line: date in YYYY-MM-DD format\n" +
+		"Following lines: family_name,kills,deaths\n\n" +
+		"Example output:\n" +
+		"2025-03-20\n" +
+		"FamilyName1,10,5\n" +
+		"FamilyName2,15,8\n\n" +
+		"CRITICAL: Return ONLY the CSV data with NO markdown formatting, NO code blocks (```), NO explanatory text, and NO additional formatting. Just the raw CSV data."
 
 	// Now extract war stats from the image using vision API
 	chatCompletion, err := client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
@@ -256,8 +275,15 @@ Return ONLY the CSV data, no explanation or additional text.`
 		return time.Time{}, nil, fmt.Errorf("OpenAI returned empty response - unable to extract war data from image")
 	}
 	
-	// Parse the CSV content returned by OpenAI
-	return parseWarCSV(strings.NewReader(csvContent))
+	// Clean the CSV content to remove markdown formatting and blank lines
+	cleanedContent := cleanCSVContent(csvContent)
+	
+	if strings.TrimSpace(cleanedContent) == "" {
+		return time.Time{}, nil, fmt.Errorf("OpenAI response contained only formatting - no actual CSV data found")
+	}
+	
+	// Parse the cleaned CSV content returned by OpenAI
+	return parseWarCSV(strings.NewReader(cleanedContent))
 }
 
 // encodeBase64 encodes data to base64 string
@@ -288,7 +314,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 
 	// Get the attachment
 	if len(i.ApplicationCommandData().Resolved.Attachments) == 0 {
-		discord.RespondEphemeral(s, i, "Please attach a CSV or image file with war data.")
+		discord.RespondText(s, i, "Please attach a CSV or image file with war data.")
 		return
 	}
 
@@ -300,7 +326,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 	}
 
 	if attachment == nil {
-		discord.RespondEphemeral(s, i, "No attachment found.")
+		discord.RespondText(s, i, "No attachment found.")
 		return
 	}
 
@@ -311,7 +337,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 		strings.HasSuffix(filename, ".jpeg") || strings.HasSuffix(filename, ".webp")
 
 	if !isCSV && !isImage {
-		discord.RespondEphemeral(s, i, "File must be a CSV file (.csv) or an image file (.png, .jpg, .jpeg, .webp).")
+		discord.RespondText(s, i, "File must be a CSV file (.csv) or an image file (.png, .jpg, .jpeg, .webp).")
 		return
 	}
 
@@ -322,9 +348,9 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 	}
 	if attachment.Size > maxFileSize {
 		if isImage {
-			discord.RespondEphemeral(s, i, "Image file size exceeds 5MB limit.")
+			discord.RespondText(s, i, "Image file size exceeds 5MB limit.")
 		} else {
-			discord.RespondEphemeral(s, i, "CSV file size exceeds 10MB limit.")
+			discord.RespondText(s, i, "CSV file size exceeds 10MB limit.")
 		}
 		return
 	}
@@ -333,7 +359,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 	if !strings.HasPrefix(attachment.URL, "https://cdn.discordapp.com/") &&
 		!strings.HasPrefix(attachment.URL, "https://media.discordapp.net/") {
 		log.Printf("addwar: suspicious attachment URL: %s", attachment.URL)
-		discord.RespondEphemeral(s, i, "Invalid attachment source.")
+		discord.RespondText(s, i, "Invalid attachment source.")
 		return
 	}
 
@@ -378,6 +404,16 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 		return
 	}
 
+	// For image processing, defer the response since it can take a while
+	if isImage {
+		err := discord.DeferResponse(s, i)
+		if err != nil {
+			log.Printf("addwar defer error: %v", err)
+			// If defer fails, we can't continue as we won't be able to respond
+			return
+		}
+	}
+
 	var warDate time.Time
 	var warLines []db.WarLineData
 
@@ -386,7 +422,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 		savedPath, err := saveImage(fileContent, i.Member.User.ID, attachment.Filename)
 		if err != nil {
 			log.Printf("addwar save image error: %v", err)
-			discord.RespondEphemeral(s, i, "Failed to save the image. Please try again.")
+			discord.FollowUpEphemeral(s, i, "Failed to save the image. Please try again.")
 			return
 		}
 		log.Printf("Image saved to: %s", savedPath)
@@ -409,7 +445,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 					"The uploaded image was flagged for potentially unsafe content.\n\n"+
 					"**Flagged categories:** %s\n\n"+
 					"Please upload a different image that complies with content policies.", categoryList)
-				discord.RespondText(s, i, msg)
+				discord.FollowUpText(s, i, msg)
 				return
 			}
 			
@@ -417,7 +453,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 			if len(errMsg) > 200 {
 				errMsg = errMsg[:200] + "..."
 			}
-			discord.RespondEphemeral(s, i, fmt.Sprintf("Failed to process image: %s", errMsg))
+			discord.FollowUpEphemeral(s, i, fmt.Sprintf("Failed to process image: %s", errMsg))
 			return
 		}
 	} else {
@@ -439,9 +475,18 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 	err = db.CreateWarFromCSV(dbx, i.GuildID, i.ChannelID, i.ID, i.Member.User.ID, warDate, warResult, warLines)
 	if err != nil {
 		log.Printf("addwar create error: %v", err)
-		discord.RespondEphemeral(s, i, "Failed to create war entry. Please try again.")
+		if isImage {
+			discord.FollowUpEphemeral(s, i, "Failed to create war entry. Please try again.")
+		} else {
+			discord.RespondEphemeral(s, i, "Failed to create war entry. Please try again.")
+		}
 		return
 	}
 
-	discord.RespondText(s, i, fmt.Sprintf("War data imported successfully!\nDate: %s\nResult: %s\nEntries: %d", warDate.Format("2006-01-02"), strings.Title(warResult), len(warLines)))
+	successMsg := fmt.Sprintf("War data imported successfully!\nDate: %s\nResult: %s\nEntries: %d", warDate.Format("2006-01-02"), strings.Title(warResult), len(warLines))
+	if isImage {
+		discord.FollowUpText(s, i, successMsg)
+	} else {
+		discord.RespondText(s, i, successMsg)
+	}
 }
