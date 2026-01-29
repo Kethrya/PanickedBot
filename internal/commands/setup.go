@@ -2,7 +2,6 @@ package commands
 
 import (
 	"github.com/bwmarrin/discordgo"
-	"github.com/jmoiron/sqlx"
 
 	"PanickedBot/internal"
 	"PanickedBot/internal/db"
@@ -46,7 +45,7 @@ func setupCommand() *discordgo.ApplicationCommand {
 	}
 }
 
-func handleSetup(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.DB) {
+func handleSetup(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB) {
 	// Must be in a server
 	if i.GuildID == "" {
 		discord.RespondEphemeral(s, i, "This command can only be used in a server.")

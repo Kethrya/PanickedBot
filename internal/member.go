@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jmoiron/sqlx"
+	"PanickedBot/internal/db"
 )
 
 // Member represents a roster member
@@ -51,7 +51,7 @@ type UpdateFields struct {
 }
 
 // GetMemberByDiscordUserID retrieves a member by Discord user ID
-func GetMemberByDiscordUserID(db *sqlx.DB, guildID, userID string) (*Member, error) {
+func GetMemberByDiscordUserID(db *db.DB, guildID, userID string) (*Member, error) {
 	var m Member
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
@@ -67,7 +67,7 @@ func GetMemberByDiscordUserID(db *sqlx.DB, guildID, userID string) (*Member, err
 }
 
 // GetMemberByFamilyName retrieves a member by BDO family name
-func GetMemberByFamilyName(db *sqlx.DB, guildID, familyName string) (*Member, error) {
+func GetMemberByFamilyName(db *db.DB, guildID, familyName string) (*Member, error) {
 	var m Member
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
@@ -83,7 +83,7 @@ func GetMemberByFamilyName(db *sqlx.DB, guildID, familyName string) (*Member, er
 }
 
 // GetMemberByDiscordUserIDIncludingInactive retrieves a member by Discord user ID, including inactive members
-func GetMemberByDiscordUserIDIncludingInactive(db *sqlx.DB, guildID, userID string) (*Member, error) {
+func GetMemberByDiscordUserIDIncludingInactive(db *db.DB, guildID, userID string) (*Member, error) {
 	var m Member
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
@@ -99,7 +99,7 @@ func GetMemberByDiscordUserIDIncludingInactive(db *sqlx.DB, guildID, userID stri
 }
 
 // GetMemberByFamilyNameIncludingInactive retrieves a member by BDO family name, including inactive members
-func GetMemberByFamilyNameIncludingInactive(db *sqlx.DB, guildID, familyName string) (*Member, error) {
+func GetMemberByFamilyNameIncludingInactive(db *db.DB, guildID, familyName string) (*Member, error) {
 	var m Member
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
@@ -116,7 +116,7 @@ func GetMemberByFamilyNameIncludingInactive(db *sqlx.DB, guildID, familyName str
 
 // UpdateMember updates member fields
 // Note: TeamIDs is handled separately via AssignMemberToTeams and is not processed here
-func UpdateMember(db *sqlx.DB, memberID int64, fields UpdateFields) error {
+func UpdateMember(db *db.DB, memberID int64, fields UpdateFields) error {
 	updates := []string{}
 	args := []interface{}{}
 
@@ -172,7 +172,7 @@ func UpdateMember(db *sqlx.DB, memberID int64, fields UpdateFields) error {
 }
 
 // CreateMember creates a new roster member
-func CreateMember(db *sqlx.DB, guildID, discordUserID, familyName string) (int64, error) {
+func CreateMember(db *db.DB, guildID, discordUserID, familyName string) (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -189,7 +189,7 @@ func CreateMember(db *sqlx.DB, guildID, discordUserID, familyName string) (int64
 }
 
 // SetMemberActive sets the is_active flag for a member
-func SetMemberActive(db *sqlx.DB, memberID int64, active bool) error {
+func SetMemberActive(db *db.DB, memberID int64, active bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -203,7 +203,7 @@ func SetMemberActive(db *sqlx.DB, memberID int64, active bool) error {
 }
 
 // GetAllRosterMembers retrieves all active roster members for a guild
-func GetAllRosterMembers(db *sqlx.DB, guildID string) ([]Member, error) {
+func GetAllRosterMembers(db *db.DB, guildID string) ([]Member, error) {
 	var members []Member
 	err := db.Select(&members, `
 		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
@@ -220,7 +220,7 @@ func GetAllRosterMembers(db *sqlx.DB, guildID string) ([]Member, error) {
 }
 
 // AssignMemberToTeams assigns a member to multiple teams (replaces all existing team assignments)
-func AssignMemberToTeams(db *sqlx.DB, memberID int64, teamIDs []int64) error {
+func AssignMemberToTeams(db *db.DB, memberID int64, teamIDs []int64) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -266,7 +266,7 @@ func AssignMemberToTeams(db *sqlx.DB, memberID int64, teamIDs []int64) error {
 }
 
 // GetMemberTeamIDs retrieves all team IDs for a member
-func GetMemberTeamIDs(db *sqlx.DB, memberID int64) ([]int64, error) {
+func GetMemberTeamIDs(db *db.DB, memberID int64) ([]int64, error) {
 	var teamIDs []int64
 	err := db.Select(&teamIDs, `
 		SELECT team_id
@@ -281,7 +281,7 @@ func GetMemberTeamIDs(db *sqlx.DB, memberID int64) ([]int64, error) {
 }
 
 // GetMemberTeamNames retrieves team names for a member as a comma-separated string
-func GetMemberTeamNames(db *sqlx.DB, guildID string, memberID int64) (string, error) {
+func GetMemberTeamNames(db *db.DB, guildID string, memberID int64) (string, error) {
 	var teamNames []string
 	err := db.Select(&teamNames, `
 		SELECT t.display_name

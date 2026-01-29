@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/jmoiron/sqlx"
 
 	"PanickedBot/internal"
 	"PanickedBot/internal/db"
@@ -35,7 +34,7 @@ func getDiscordDisplayName(s *discordgo.Session, guildID string, userID string) 
 	return userID
 }
 
-func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.DB, cfg *GuildConfig) {
+func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, cfg *GuildConfig) {
 	if !hasGuildMemberPermission(i, cfg) {
 		discord.RespondEphemeral(s, i, "You need guild member role to use this command.")
 		return
@@ -127,7 +126,7 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 	discord.RespondText(s, i, "Your information has been updated successfully.")
 }
 
-func handleGear(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.DB, cfg *GuildConfig) {
+func handleGear(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, cfg *GuildConfig) {
 	if !hasGuildMemberPermission(i, cfg) {
 		discord.RespondEphemeral(s, i, "You need guild member role to use this command.")
 		return
@@ -249,7 +248,7 @@ func handleGear(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.
 	discord.RespondText(s, i, responseMsg)
 }
 
-func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.DB, cfg *GuildConfig) {
+func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, cfg *GuildConfig) {
 	if !hasOfficerPermission(s, i, cfg) {
 		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
 		return
@@ -407,7 +406,7 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 	discord.RespondText(s, i, "Member information updated successfully.")
 }
 
-func handleInactive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.DB, cfg *GuildConfig) {
+func handleInactive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, cfg *GuildConfig) {
 	if !hasOfficerPermission(s, i, cfg) {
 		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
 		return
@@ -462,7 +461,7 @@ func handleInactive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *s
 	discord.RespondText(s, i, "Member marked as inactive successfully.")
 }
 
-func handleActive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.DB, cfg *GuildConfig) {
+func handleActive(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, cfg *GuildConfig) {
 	if !hasOfficerPermission(s, i, cfg) {
 		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
 		return

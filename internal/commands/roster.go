@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/jmoiron/sqlx"
 
 	"PanickedBot/internal"
+	"PanickedBot/internal/db"
 	"PanickedBot/internal/discord"
 )
 
@@ -77,7 +77,7 @@ func truncateString(s string, maxLen int) string {
 	return s
 }
 
-func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *sqlx.DB, cfg *GuildConfig) {
+func handleGetRoster(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, cfg *GuildConfig) {
 	if !hasOfficerPermission(s, i, cfg) {
 		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
 		return

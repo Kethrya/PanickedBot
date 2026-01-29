@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/jmoiron/sqlx"
+	
+	"PanickedBot/internal/db"
 )
 
 // EnsureGuildRows ensures that guild rows exist in the database
-func EnsureGuildRows(dbx *sqlx.DB, guildStates []*discordgo.Guild) error {
+func EnsureGuildRows(dbx *db.DB, guildStates []*discordgo.Guild) error {
 	if len(guildStates) == 0 {
 		return nil
 	}
