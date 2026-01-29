@@ -228,6 +228,7 @@ The bot will:
 **Required Role:** Officer Role  
 **Parameters:**
 - `file` (required) - CSV or image file (<5MB for images, <10MB for CSV) with war data
+- `result` (required) - War result (Win or Lose)
 
 **CSV Format:**
 ```
@@ -253,6 +254,25 @@ FamilyName2,15,8
 **Description:** Get war statistics for all roster members  
 **Required Role:** Officer Role  
 **Output:** Displays total wars, most recent war date, kills, deaths, and K/D ratio for each active member
+
+#### `/warresults`
+**Description:** Get results of all wars from most recent to oldest  
+**Required Role:** Officer Role  
+**Output:** Displays for each war:
+- Date (YYYY-MM-DD format)
+- Result (W for Win, L for Lose)
+- Total kills for the guild
+- Total deaths for the guild
+- K/D ratio for the war
+- Cumulative totals (kills, deaths, K/D) at the bottom
+
+#### `/removewar`
+**Description:** Remove war data for a specific date  
+**Required Role:** Officer Role  
+**Parameters:**
+- `date` (required) - War date in YYYY-MM-DD format (e.g., 2025-01-15)
+
+**Note:** This command will remove all war data for the specified date, including all individual member statistics. The operation cannot be undone.
 
 ## Development
 
