@@ -130,10 +130,12 @@ func processImageWithOpenAI(imageData []byte, mimeType string) (warDate time.Tim
 	client := openai.NewClient(option.WithAPIKey(apiKey))
 
 	// Encode image as base64
-	imageBase64 := fmt.Sprintf("data:%s;base64,%s", mimeType, encodeBase64(imageData))
+	imageBase64 := fmt.Sprintf("data:%s;base64,%s", mimeType, base64.StdEncoding.EncodeToString(imageData))
 
 	// First, check if the image passes moderation
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	
 	moderationResp, err := client.Moderations.New(ctx, openai.ModerationNewParams{
 		Model: openai.ModerationModelOmniModerationLatest,
 		Input: openai.ModerationNewParamsInputUnion{
@@ -150,7 +152,51 @@ func processImageWithOpenAI(imageData []byte, mimeType string) (warDate time.Tim
 
 	// Check if the image was flagged as unsafe
 	if len(moderationResp.Results) > 0 && moderationResp.Results[0].Flagged {
-		return time.Time{}, nil, fmt.Errorf("image failed moderation check - image may contain harmful or unsafe content")
+		// Collect the categories that were flagged
+		categories := moderationResp.Results[0].Categories
+		var flaggedCategories []string
+		
+		if categories.Harassment {
+			flaggedCategories = append(flaggedCategories, "harassment")
+		}
+		if categories.HarassmentThreatening {
+			flaggedCategories = append(flaggedCategories, "harassment/threatening")
+		}
+		if categories.Hate {
+			flaggedCategories = append(flaggedCategories, "hate")
+		}
+		if categories.HateThreatening {
+			flaggedCategories = append(flaggedCategories, "hate/threatening")
+		}
+		if categories.Illicit {
+			flaggedCategories = append(flaggedCategories, "illicit")
+		}
+		if categories.IllicitViolent {
+			flaggedCategories = append(flaggedCategories, "illicit/violent")
+		}
+		if categories.SelfHarm {
+			flaggedCategories = append(flaggedCategories, "self-harm")
+		}
+		if categories.SelfHarmInstructions {
+			flaggedCategories = append(flaggedCategories, "self-harm/instructions")
+		}
+		if categories.SelfHarmIntent {
+			flaggedCategories = append(flaggedCategories, "self-harm/intent")
+		}
+		if categories.Sexual {
+			flaggedCategories = append(flaggedCategories, "sexual")
+		}
+		if categories.SexualMinors {
+			flaggedCategories = append(flaggedCategories, "sexual/minors")
+		}
+		if categories.Violence {
+			flaggedCategories = append(flaggedCategories, "violence")
+		}
+		if categories.ViolenceGraphic {
+			flaggedCategories = append(flaggedCategories, "violence/graphic")
+		}
+		
+		return time.Time{}, nil, fmt.Errorf("MODERATION_FAILED:%s", strings.Join(flaggedCategories, ","))
 	}
 
 	// Create the prompt for OpenAI
@@ -162,12 +208,14 @@ The screenshot contains war data with the following information:
 - The last two columns (rightmost) contain kills and deaths
 - All other columns should be ignored
 
+IMPORTANT: The date MUST be returned in YYYY-MM-DD format (e.g., 2025-03-20), regardless of how it appears in the screenshot. If the date is in a different format (e.g., MM/DD/YYYY, DD-MM-YYYY), convert it to YYYY-MM-DD format.
+
 Please return the data in this exact CSV format:
 First line: date in YYYY-MM-DD format
 Following lines: family_name,kills,deaths
 
 Example output:
-2024-01-15
+2025-03-20
 FamilyName1,10,5
 FamilyName2,15,8
 
@@ -202,6 +250,11 @@ Return ONLY the CSV data, no explanation or additional text.`
 	}
 
 	csvContent := chatCompletion.Choices[0].Message.Content
+	
+	// Validate that we got some content back
+	if strings.TrimSpace(csvContent) == "" {
+		return time.Time{}, nil, fmt.Errorf("OpenAI returned empty response - unable to extract war data from image")
+	}
 	
 	// Parse the CSV content returned by OpenAI
 	return parseWarCSV(strings.NewReader(csvContent))
@@ -327,8 +380,25 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 		warDate, warLines, err = processImageWithOpenAI(fileContent, attachment.ContentType)
 		if err != nil {
 			log.Printf("addwar image processing error: %v", err)
-			// Truncate error message to avoid exposing too much detail
+			
+			// Check if this is a moderation failure
 			errMsg := err.Error()
+			if strings.HasPrefix(errMsg, "MODERATION_FAILED:") {
+				// Extract the flagged categories
+				categoriesStr := strings.TrimPrefix(errMsg, "MODERATION_FAILED:")
+				categories := strings.Split(categoriesStr, ",")
+				
+				// Build a user-friendly message
+				categoryList := strings.Join(categories, ", ")
+				msg := fmt.Sprintf("⚠️ **Image Moderation Failed**\n\n"+
+					"The uploaded image was flagged for potentially unsafe content.\n\n"+
+					"**Flagged categories:** %s\n\n"+
+					"Please upload a different image that complies with content policies.", categoryList)
+				discord.RespondText(s, i, msg)
+				return
+			}
+			
+			// For other errors, respond ephemerally
 			if len(errMsg) > 200 {
 				errMsg = errMsg[:200] + "..."
 			}
