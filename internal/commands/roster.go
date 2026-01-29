@@ -32,14 +32,9 @@ func calculateGS(ap, aap, dp *int) int {
 }
 
 // getDisplayNameForRoster returns the display name for a roster member
-// Uses cached display_name from database if available, otherwise falls back to Discord API
+// Always fetches the current display name from Discord to avoid showing stale cached data
 func getDisplayNameForRoster(s *discordgo.Session, guildID string, member *internal.Member) string {
-	// Use cached display name if available
-	if member.DisplayName != nil && *member.DisplayName != "" {
-		return *member.DisplayName
-	}
-
-	// Fallback to fetching from Discord if we have a user ID
+	// Always fetch from Discord if we have a user ID to ensure we show the current display name
 	if member.DiscordUserID != nil && *member.DiscordUserID != "" {
 		guildMember, err := s.GuildMember(guildID, *member.DiscordUserID)
 		if err == nil && guildMember != nil {
@@ -54,7 +49,16 @@ func getDisplayNameForRoster(s *discordgo.Session, guildID string, member *inter
 				}
 			}
 		}
+		// If Discord fetch fails, fall back to cached display name if available
+		if member.DisplayName != nil && *member.DisplayName != "" {
+			return *member.DisplayName
+		}
 		return *member.DiscordUserID
+	}
+
+	// If no Discord user ID, try cached display name
+	if member.DisplayName != nil && *member.DisplayName != "" {
+		return *member.DisplayName
 	}
 
 	// Final fallback: use family name
