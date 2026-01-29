@@ -32,9 +32,10 @@ type Member struct {
 	TotalAAP *int     `db:"total_aap"`
 
 	// Status flags
-	MeetsCap    bool `db:"meets_cap"`
-	IsException bool `db:"is_exception"`
-	IsActive    bool `db:"is_active"`
+	MeetsCap     bool `db:"meets_cap"`
+	IsException  bool `db:"is_exception"`
+	IsMercenary  bool `db:"is_mercenary"`
+	IsActive     bool `db:"is_active"`
 }
 
 // UpdateFields represents fields that can be updated
@@ -56,7 +57,7 @@ func GetMemberByDiscordUserID(db *db.DB, guildID, userID string) (*Member, error
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
 		       class, spec, ap, aap, dp, evasion, dr, drr, 
-		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
+		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_mercenary, is_active
 		FROM roster_members 
 		WHERE discord_guild_id = ? AND discord_user_id = ? AND is_active = 1
 	`, guildID, userID)
@@ -72,7 +73,7 @@ func GetMemberByFamilyName(db *db.DB, guildID, familyName string) (*Member, erro
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
 		       class, spec, ap, aap, dp, evasion, dr, drr, 
-		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
+		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_mercenary, is_active
 		FROM roster_members 
 		WHERE discord_guild_id = ? AND family_name = ? AND is_active = 1
 	`, guildID, familyName)
@@ -88,7 +89,7 @@ func GetMemberByDiscordUserIDIncludingInactive(db *db.DB, guildID, userID string
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
 		       class, spec, ap, aap, dp, evasion, dr, drr, 
-		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
+		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_mercenary, is_active
 		FROM roster_members 
 		WHERE discord_guild_id = ? AND discord_user_id = ?
 	`, guildID, userID)
@@ -104,7 +105,7 @@ func GetMemberByFamilyNameIncludingInactive(db *db.DB, guildID, familyName strin
 	err := db.Get(&m, `
 		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
 		       class, spec, ap, aap, dp, evasion, dr, drr, 
-		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
+		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_mercenary, is_active
 		FROM roster_members 
 		WHERE discord_guild_id = ? AND family_name = ?
 	`, guildID, familyName)
@@ -202,15 +203,29 @@ func SetMemberActive(db *db.DB, memberID int64, active bool) error {
 	return err
 }
 
-// GetAllRosterMembers retrieves all active roster members for a guild
+// SetMemberMercenary sets the is_mercenary flag for a member
+func SetMemberMercenary(db *db.DB, memberID int64, mercenary bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_, err := db.ExecContext(ctx, `
+		UPDATE roster_members 
+		SET is_mercenary = ?
+		WHERE id = ?
+	`, mercenary, memberID)
+
+	return err
+}
+
+// GetAllRosterMembers retrieves all active roster members for a guild, excluding mercenaries
 func GetAllRosterMembers(db *db.DB, guildID string) ([]Member, error) {
 	var members []Member
 	err := db.Select(&members, `
 		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
 		       class, spec, ap, aap, dp, evasion, dr, drr, 
-		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_active
+		       accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_mercenary, is_active
 		FROM roster_members 
-		WHERE discord_guild_id = ? AND is_active = 1
+		WHERE discord_guild_id = ? AND is_active = 1 AND is_mercenary = 0
 		ORDER BY family_name
 	`, guildID)
 	if err != nil {

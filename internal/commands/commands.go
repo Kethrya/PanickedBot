@@ -197,6 +197,24 @@ func GetCommands() []*discordgo.ApplicationCommand {
 			Description: "Get all roster member information (officer role required)",
 		},
 		{
+			Name:        "merc",
+			Description: "Mark a member as mercenary or not (officer role required)",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "member",
+					Description: "Discord member to update",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "is_mercenary",
+					Description: "Whether the member is a mercenary",
+					Required:    true,
+				},
+			},
+		},
+		{
 			Name:        "warstats",
 			Description: "Get war statistics for all roster members (officer role required)",
 		},
@@ -283,6 +301,9 @@ func CreateInteractionHandler(database *db.DB) func(s *discordgo.Session, i *dis
 
 		case "roster":
 			handleGetRoster(s, i, database, cfg)
+
+		case "merc":
+			handleMerc(s, i, database, cfg)
 
 		case "warstats":
 			handleWarStats(s, i, database, cfg)
