@@ -404,6 +404,16 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 		return
 	}
 
+	// For image processing, defer the response since it can take a while
+	if isImage {
+		err := discord.DeferResponse(s, i)
+		if err != nil {
+			log.Printf("addwar defer error: %v", err)
+			// If defer fails, we can't continue as we won't be able to respond
+			return
+		}
+	}
+
 	var warDate time.Time
 	var warLines []db.WarLineData
 
@@ -412,7 +422,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 		savedPath, err := saveImage(fileContent, i.Member.User.ID, attachment.Filename)
 		if err != nil {
 			log.Printf("addwar save image error: %v", err)
-			discord.RespondEphemeral(s, i, "Failed to save the image. Please try again.")
+			discord.FollowUpEphemeral(s, i, "Failed to save the image. Please try again.")
 			return
 		}
 		log.Printf("Image saved to: %s", savedPath)
@@ -435,7 +445,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 					"The uploaded image was flagged for potentially unsafe content.\n\n"+
 					"**Flagged categories:** %s\n\n"+
 					"Please upload a different image that complies with content policies.", categoryList)
-				discord.RespondText(s, i, msg)
+				discord.FollowUpText(s, i, msg)
 				return
 			}
 			
@@ -443,7 +453,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 			if len(errMsg) > 200 {
 				errMsg = errMsg[:200] + "..."
 			}
-			discord.RespondEphemeral(s, i, fmt.Sprintf("Failed to process image: %s", errMsg))
+			discord.FollowUpEphemeral(s, i, fmt.Sprintf("Failed to process image: %s", errMsg))
 			return
 		}
 	} else {
@@ -465,9 +475,18 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 	err = db.CreateWarFromCSV(dbx, i.GuildID, i.ChannelID, i.ID, i.Member.User.ID, warDate, warResult, warLines)
 	if err != nil {
 		log.Printf("addwar create error: %v", err)
-		discord.RespondEphemeral(s, i, "Failed to create war entry. Please try again.")
+		if isImage {
+			discord.FollowUpEphemeral(s, i, "Failed to create war entry. Please try again.")
+		} else {
+			discord.RespondEphemeral(s, i, "Failed to create war entry. Please try again.")
+		}
 		return
 	}
 
-	discord.RespondText(s, i, fmt.Sprintf("War data imported successfully!\nDate: %s\nResult: %s\nEntries: %d", warDate.Format("2006-01-02"), strings.Title(warResult), len(warLines)))
+	successMsg := fmt.Sprintf("War data imported successfully!\nDate: %s\nResult: %s\nEntries: %d", warDate.Format("2006-01-02"), strings.Title(warResult), len(warLines))
+	if isImage {
+		discord.FollowUpText(s, i, successMsg)
+	} else {
+		discord.RespondText(s, i, successMsg)
+	}
 }
