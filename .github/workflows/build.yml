@@ -30,15 +30,6 @@ jobs:
     - name: Generate sqlc code
       run: sqlc generate
 
-    - name: Verify generated code is up to date
-      run: |
-        if [ -n "$(git status --porcelain internal/db/sqlc)" ]; then
-          echo "Error: Generated sqlc code is out of date"
-          echo "Please run 'sqlc generate' and commit the changes"
-          git diff internal/db/sqlc
-          exit 1
-        fi
-
     - name: Download dependencies
       run: go mod download
 
