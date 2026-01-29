@@ -1,8 +1,6 @@
 package internal
 
 import (
-	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
@@ -91,29 +89,20 @@ func (ma MemberAttendance) HasAttendanceIssue() bool {
 
 // CheckMemberAttendance checks attendance for a specific member
 func (ac *AttendanceChecker) CheckMemberAttendance(guildID string, memberID int64, weeksBack int) (*MemberAttendance, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
 	// Get member information
-	var member Member
-	err := ac.db.Get(&member, `
-		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
-		       class, spec, ap, aap, dp, created_at
-		FROM roster_members 
-		WHERE id = ? AND discord_guild_id = ? AND is_active = 1
-	`, memberID, guildID)
+	member, err := db.GetMemberByID(ac.db, memberID, guildID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get member: %w", err)
 	}
 
 	// Get member's vacations
-	vacations, err := ac.getMemberVacations(ctx, memberID)
+	vacations, err := db.GetMemberVacationsForAttendance(ac.db, memberID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get vacations: %w", err)
 	}
 
 	// Get member's war participation dates
-	warDates, err := ac.getMemberWarDates(ctx, guildID, memberID)
+	warDates, err := db.GetMemberWarDates(ac.db, guildID, memberID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get war dates: %w", err)
 	}
@@ -169,14 +158,7 @@ func (ac *AttendanceChecker) CheckMemberAttendance(guildID string, memberID int6
 // CheckAllMembersAttendance checks attendance for all active members
 func (ac *AttendanceChecker) CheckAllMembersAttendance(guildID string, weeksBack int) ([]MemberAttendance, error) {
 	// Get all active members (excluding mercenaries)
-	var members []Member
-	err := ac.db.Select(&members, `
-		SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
-		       class, spec, ap, aap, dp, created_at
-		FROM roster_members 
-		WHERE discord_guild_id = ? AND is_active = 1 AND is_mercenary = 0
-		ORDER BY family_name
-	`, guildID)
+	members, err := db.GetAllActiveMembersForAttendance(ac.db, guildID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get members: %w", err)
 	}
@@ -196,53 +178,8 @@ func (ac *AttendanceChecker) CheckAllMembersAttendance(guildID string, weeksBack
 	return results, nil
 }
 
-// getMemberVacations retrieves all vacations for a member
-func (ac *AttendanceChecker) getMemberVacations(ctx context.Context, memberID int64) ([]Vacation, error) {
-	var vacations []Vacation
-	err := ac.db.SelectContext(ctx, &vacations, `
-		SELECT id, discord_guild_id, roster_member_id, start_date, end_date, reason, created_by_user_id, created_at
-		FROM member_exceptions
-		WHERE roster_member_id = ? AND type = 'vacation'
-		ORDER BY start_date
-	`, memberID)
-	if err != nil {
-		return nil, err
-	}
-	return vacations, nil
-}
-
-// Vacation represents a vacation period
-type Vacation struct {
-	ID              int64
-	DiscordGuildID  string
-	RosterMemberID  int64
-	StartDate       time.Time
-	EndDate         time.Time
-	Reason          sql.NullString
-	CreatedByUserID string
-	CreatedAt       time.Time
-}
-
-// getMemberWarDates retrieves dates when a member participated in wars
-func (ac *AttendanceChecker) getMemberWarDates(ctx context.Context, guildID string, memberID int64) ([]time.Time, error) {
-	var dates []time.Time
-	err := ac.db.SelectContext(ctx, &dates, `
-		SELECT DISTINCT w.war_date
-		FROM wars w
-		JOIN war_lines wl ON w.id = wl.war_id
-		WHERE w.discord_guild_id = ? 
-		  AND wl.roster_member_id = ?
-		  AND w.is_excluded = 0
-		ORDER BY w.war_date
-	`, guildID, memberID)
-	if err != nil {
-		return nil, err
-	}
-	return dates, nil
-}
-
 // isOnVacationForEntireWeek checks if a member is on vacation for the entire week
-func (ac *AttendanceChecker) isOnVacationForEntireWeek(week WeekPeriod, vacations []Vacation) bool {
+func (ac *AttendanceChecker) isOnVacationForEntireWeek(week WeekPeriod, vacations []db.MemberVacation) bool {
 	for _, vacation := range vacations {
 		// Check if vacation covers the entire week
 		// Vacation must start on or before the week start

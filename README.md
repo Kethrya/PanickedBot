@@ -326,25 +326,6 @@ FamilyName2,15,8
 
 ## Development
 
-### Project Structure
-
-```
-PanickedBot/
-├── .github/
-│   └── workflows/
-│       └── build.yml          # CI/CD workflow
-├── internal/
-│   ├── commands/              # Discord command handlers
-│   ├── db/
-│   │   ├── queries/          # SQL queries (source of truth)
-│   │   └── sqlc/             # Generated Go code (not in git)
-│   └── discord/              # Discord utilities
-├── schema.sql                 # Database schema
-├── sqlc.yaml                  # sqlc configuration
-├── Makefile                   # Build automation
-└── README.md                  # This file
-```
-
 ### Common Tasks
 
 ```bash
