@@ -87,6 +87,8 @@ The GitHub Actions workflow automatically:
 3. Builds the project
 4. Runs tests and static analysis
 
+**Important:** For pull requests, the CI tests the merge commit (the result of merging the PR branch into the target branch). This ensures that the code will build successfully after merging and catches integration issues early.
+
 See `.github/workflows/build.yml` for details.
 
 ## Troubleshooting

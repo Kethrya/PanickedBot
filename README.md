@@ -305,6 +305,8 @@ The GitHub Actions CI workflow automatically:
 - Runs tests with race detection
 - Uploads coverage reports
 
+**For Pull Requests:** The CI tests the merge commit (the result of merging your PR into the base branch) to ensure compatibility and catch any merge conflicts or integration issues before merging.
+
 ## Contributing
 
 1. Fork the repository

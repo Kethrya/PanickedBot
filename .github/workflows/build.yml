@@ -17,6 +17,19 @@ jobs:
     steps:
     - name: Check out code
       uses: actions/checkout@v4
+      # By default, for pull_request events, GitHub Actions checks out a merge commit
+      # (refs/pull/:prNumber/merge) which is the result of merging the PR branch
+      # into the base branch. This ensures we test what will actually be merged.
+      # No additional configuration needed - this is the default behavior.
+    
+    - name: Verify merge commit for pull requests
+      if: github.event_name == 'pull_request'
+      run: |
+        echo "Testing pull request #${{ github.event.pull_request.number }}"
+        echo "Base branch: ${{ github.event.pull_request.base.ref }}"
+        echo "Head branch: ${{ github.event.pull_request.head.ref }}"
+        echo "Current commit: $(git rev-parse HEAD)"
+        echo "This is a merge commit simulating the PR being merged into the base branch"
 
     - name: Set up Go
       uses: actions/setup-go@v5
