@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 
@@ -143,7 +142,7 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 func handleWarStatsByDate(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, dateStr string) {
 	// Parse the date in Eastern timezone
 	est := getEasternLocation()
-	warDate, err := time.ParseInLocation("02-01-06", dateStr, est)
+	warDate, err := parseFlexibleDate(dateStr, est)
 	if err != nil {
 		discord.RespondEphemeral(s, i, "Invalid date format. Please use DD-MM-YY format (e.g., 15-01-25).")
 		return
@@ -320,7 +319,7 @@ func handleRemoveWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 
 	// Parse the date in Eastern timezone
 	est := getEasternLocation()
-	warDate, err := time.ParseInLocation("02-01-06", dateStr, est)
+	warDate, err := parseFlexibleDate(dateStr, est)
 	if err != nil {
 		discord.RespondEphemeral(s, i, "Invalid date format. Please use DD-MM-YY format (e.g., 15-01-25).")
 		return

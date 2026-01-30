@@ -6,6 +6,189 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
+func TestParseFlexibleDate(t *testing.T) {
+	est := getEasternLocation()
+
+	tests := []struct {
+		name        string
+		input       string
+		expectError bool
+		expectedDay int
+		expectedMonth int
+		expectedYear int
+	}{
+		{
+			name:          "Single digit day and month",
+			input:         "1-1-28",
+			expectError:   false,
+			expectedDay:   1,
+			expectedMonth: 1,
+			expectedYear:  2028,
+		},
+		{
+			name:          "Single digit month, double digit day",
+			input:         "26-1-28",
+			expectError:   false,
+			expectedDay:   26,
+			expectedMonth: 1,
+			expectedYear:  2028,
+		},
+		{
+			name:          "Double digit month, single digit day",
+			input:         "5-12-28",
+			expectError:   false,
+			expectedDay:   5,
+			expectedMonth: 12,
+			expectedYear:  2028,
+		},
+		{
+			name:          "All double digits",
+			input:         "26-01-28",
+			expectError:   false,
+			expectedDay:   26,
+			expectedMonth: 1,
+			expectedYear:  2028,
+		},
+		{
+			name:          "End of month",
+			input:         "31-12-25",
+			expectError:   false,
+			expectedDay:   31,
+			expectedMonth: 12,
+			expectedYear:  2025,
+		},
+		{
+			name:          "Leap year date",
+			input:         "29-2-24",
+			expectError:   false,
+			expectedDay:   29,
+			expectedMonth: 2,
+			expectedYear:  2024,
+		},
+		{
+			name:          "Start of year",
+			input:         "1-1-26",
+			expectError:   false,
+			expectedDay:   1,
+			expectedMonth: 1,
+			expectedYear:  2026,
+		},
+		{
+			name:          "With leading/trailing whitespace",
+			input:         "  15-6-27  ",
+			expectError:   false,
+			expectedDay:   15,
+			expectedMonth: 6,
+			expectedYear:  2027,
+		},
+		{
+			name:        "Invalid format - missing parts",
+			input:       "26-1",
+			expectError: true,
+		},
+		{
+			name:        "Invalid format - too many parts",
+			input:       "26-1-28-2024",
+			expectError: true,
+		},
+		{
+			name:        "Invalid day - zero",
+			input:       "0-1-28",
+			expectError: true,
+		},
+		{
+			name:        "Invalid day - too large",
+			input:       "32-1-28",
+			expectError: true,
+		},
+		{
+			name:        "Invalid month - zero",
+			input:       "15-0-28",
+			expectError: true,
+		},
+		{
+			name:        "Invalid month - too large",
+			input:       "15-13-28",
+			expectError: true,
+		},
+		{
+			name:        "Invalid year - too large",
+			input:       "15-1-100",
+			expectError: true,
+		},
+		{
+			name:        "Invalid date - Feb 30",
+			input:       "30-2-28",
+			expectError: true,
+		},
+		{
+			name:        "Invalid date - Feb 29 non-leap year",
+			input:       "29-2-27",
+			expectError: true,
+		},
+		{
+			name:        "Non-numeric day",
+			input:       "ab-1-28",
+			expectError: true,
+		},
+		{
+			name:        "Non-numeric month",
+			input:       "15-ab-28",
+			expectError: true,
+		},
+		{
+			name:        "Non-numeric year",
+			input:       "15-1-ab",
+			expectError: true,
+		},
+		{
+			name:        "Empty string",
+			input:       "",
+			expectError: true,
+		},
+		{
+			name:        "Wrong separator",
+			input:       "15/1/28",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := parseFlexibleDate(tt.input, est)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("parseFlexibleDate() expected error but got none")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Errorf("parseFlexibleDate() unexpected error: %v", err)
+				return
+			}
+
+			if result.Day() != tt.expectedDay {
+				t.Errorf("parseFlexibleDate() day = %d, want %d", result.Day(), tt.expectedDay)
+			}
+
+			if int(result.Month()) != tt.expectedMonth {
+				t.Errorf("parseFlexibleDate() month = %d, want %d", int(result.Month()), tt.expectedMonth)
+			}
+
+			if result.Year() != tt.expectedYear {
+				t.Errorf("parseFlexibleDate() year = %d, want %d", result.Year(), tt.expectedYear)
+			}
+
+			// Check timezone
+			if result.Location() != est {
+				t.Errorf("parseFlexibleDate() timezone = %v, want %v", result.Location(), est)
+			}
+		})
+	}
+}
+
 func TestNormalizeClassName(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -98,12 +98,39 @@ func TestParseWarCSV(t *testing.T) {
 		expectedLines int
 	}{
 		{
-			name: "Valid CSV",
+			name: "Valid CSV with double-digit date",
 			input: `29-01-26
 FamilyName1,10,5
 FamilyName2,15,8`,
 			expectError:   false,
 			expectedDate:  "29-01-26",
+			expectedLines: 2,
+		},
+		{
+			name: "Valid CSV with single-digit month",
+			input: `26-1-28
+FamilyName1,10,5
+FamilyName2,15,8`,
+			expectError:   false,
+			expectedDate:  "26-01-28",
+			expectedLines: 2,
+		},
+		{
+			name: "Valid CSV with single-digit day",
+			input: `5-12-28
+FamilyName1,10,5
+FamilyName2,15,8`,
+			expectError:   false,
+			expectedDate:  "05-12-28",
+			expectedLines: 2,
+		},
+		{
+			name: "Valid CSV with single-digit day and month",
+			input: `1-1-28
+FamilyName1,10,5
+FamilyName2,15,8`,
+			expectError:   false,
+			expectedDate:  "01-01-28",
 			expectedLines: 2,
 		},
 		{

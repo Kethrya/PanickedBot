@@ -2,7 +2,9 @@ package commands
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +21,57 @@ type GuildConfig = internal.GuildConfig
 // This is a convenience wrapper around the internal.GetEasternLocation function
 func getEasternLocation() *time.Location {
 	return internal.GetEasternLocation()
+}
+
+// parseFlexibleDate parses a date string in DD-MM-YY format where day and month
+// can be either single or double digits (e.g., "26-1-28", "26-01-28", "1-1-28", "01-01-28")
+// Returns the parsed time in the Eastern timezone
+func parseFlexibleDate(dateStr string, loc *time.Location) (time.Time, error) {
+	// Split the date string by dashes
+	parts := strings.Split(strings.TrimSpace(dateStr), "-")
+	if len(parts) != 3 {
+		return time.Time{}, fmt.Errorf("invalid date format: expected DD-MM-YY (e.g., 26-1-28 or 26-01-28)")
+	}
+
+	// Parse day, month, and year
+	day, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid day value: %s", parts[0])
+	}
+
+	month, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid month value: %s", parts[1])
+	}
+
+	year, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid year value: %s", parts[2])
+	}
+
+	// Validate ranges
+	if day < 1 || day > 31 {
+		return time.Time{}, fmt.Errorf("day must be between 1 and 31, got %d", day)
+	}
+	if month < 1 || month > 12 {
+		return time.Time{}, fmt.Errorf("month must be between 1 and 12, got %d", month)
+	}
+	if year < 0 || year > 99 {
+		return time.Time{}, fmt.Errorf("year must be between 0 and 99, got %d", year)
+	}
+
+	// Convert 2-digit year to 4-digit year (assuming 2000s)
+	fullYear := 2000 + year
+
+	// Create the date in the specified location
+	date := time.Date(fullYear, time.Month(month), day, 0, 0, 0, 0, loc)
+
+	// Validate that the date is valid (e.g., not Feb 30)
+	if date.Day() != day || int(date.Month()) != month {
+		return time.Time{}, fmt.Errorf("invalid date: %d-%d-%d does not exist", day, month, year)
+	}
+
+	return date, nil
 }
 
 // validClasses is the list of valid Black Desert Online classes

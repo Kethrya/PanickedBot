@@ -67,7 +67,7 @@ func parseWarCSV(content io.Reader) (warDate time.Time, warLines []db.WarLineDat
 
 	// Parse date in Eastern timezone
 	est := getEasternLocation()
-	warDate, err = time.ParseInLocation("02-01-06", strings.TrimSpace(dateRecord[0]), est)
+	warDate, err = parseFlexibleDate(strings.TrimSpace(dateRecord[0]), est)
 	if err != nil {
 		return time.Time{}, nil, fmt.Errorf("invalid date format (expected DD-MM-YY): %w", err)
 	}
