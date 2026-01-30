@@ -13,15 +13,9 @@ import (
 type GuildConfig = internal.GuildConfig
 
 // getEasternLocation returns the Eastern timezone location (America/New_York)
-// This handles both EST (Eastern Standard Time) and EDT (Eastern Daylight Time) automatically
+// This is a convenience wrapper around the internal.GetEasternLocation function
 func getEasternLocation() *time.Location {
-	loc, err := time.LoadLocation("America/New_York")
-	if err != nil {
-		// Fallback to UTC if Eastern timezone is not available
-		// This should not happen in production but provides a safe fallback
-		return time.UTC
-	}
-	return loc
+	return internal.GetEasternLocation()
 }
 
 // validClasses is the list of valid Black Desert Online classes

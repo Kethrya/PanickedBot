@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -28,14 +30,25 @@ func deregisterAllCommands(dg *discordgo.Session) error {
 
 	log.Printf("Found %d registered commands to deregister", len(existingCommands))
 
+	// Track any errors but continue attempting to delete all commands
+	var errors []string
+
 	// Delete each command
 	for _, cmd := range existingCommands {
 		err := dg.ApplicationCommandDelete(appID, "", cmd.ID)
 		if err != nil {
-			log.Printf("Failed to delete command /%s: %v", cmd.Name, err)
-			return err
+			errMsg := fmt.Sprintf("Failed to delete command /%s: %v", cmd.Name, err)
+			log.Println(errMsg)
+			errors = append(errors, errMsg)
+			continue
 		}
 		log.Printf("Deregistered global /%s", cmd.Name)
+	}
+
+	// If any errors occurred, return them
+	if len(errors) > 0 {
+		errorMsg := strings.Join(errors, "\n")
+		return fmt.Errorf("failed to deregister some commands:\n%s", errorMsg)
 	}
 
 	log.Printf("Successfully deregistered all commands")
