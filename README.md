@@ -140,6 +140,18 @@ The bot will:
 3. Register all slash commands globally
 4. Start listening for interactions
 
+### Command-Line Flags
+
+#### `-deregister`
+Deregister all Discord commands and exit. This is useful for cleaning up commands during development or before uninstalling the bot.
+
+**Usage:**
+```bash
+./PanickedBot -deregister
+```
+
+**Note:** This flag only requires the `DISCORD_BOT_TOKEN` environment variable. It does not connect to the database.
+
 ## Bot Commands
 
 ### Initial Setup
