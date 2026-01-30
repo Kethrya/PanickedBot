@@ -38,6 +38,13 @@ func handleAttendance(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 		return
 	}
 
+	// Defer response since checking all members can take time
+	err := discord.DeferResponse(s, i)
+	if err != nil {
+		log.Printf("attendance defer error: %v", err)
+		return
+	}
+
 	// Create attendance checker
 	checker := internal.NewAttendanceChecker(dbx)
 
@@ -45,7 +52,7 @@ func handleAttendance(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 	results, err := checker.CheckAllMembersAttendance(i.GuildID, int(weeksBack))
 	if err != nil {
 		log.Printf("attendance error: %v", err)
-		discord.RespondEphemeral(s, i, "Failed to check attendance. Please try again.")
+		discord.FollowUpEphemeral(s, i, "Failed to check attendance. Please try again.")
 		return
 	}
 
@@ -85,8 +92,8 @@ func handleAttendance(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 		}
 	}
 
-	// Send response
-	discord.RespondText(s, i, message.String())
+	// Send follow-up response
+	discord.FollowUpText(s, i, message.String())
 }
 
 func handleCheckAttendance(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, cfg *GuildConfig) {
@@ -127,23 +134,30 @@ func handleCheckAttendance(s *discordgo.Session, i *discordgo.InteractionCreate,
 		return
 	}
 
-	// Get member record
-	var member *internal.Member
-	var err error
-
-	if targetUser != nil {
-		member, err = internal.GetMemberByDiscordUserID(dbx, i.GuildID, targetUser.ID)
-	} else {
-		member, err = internal.GetMemberByFamilyName(dbx, i.GuildID, familyName)
+	// Defer response for consistency and to handle potential long operations
+	err := discord.DeferResponse(s, i)
+	if err != nil {
+		log.Printf("checkattendance defer error: %v", err)
+		return
 	}
 
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			discord.RespondEphemeral(s, i, "Member not found.")
+	// Get member record
+	var member *internal.Member
+	var memberErr error
+
+	if targetUser != nil {
+		member, memberErr = internal.GetMemberByDiscordUserID(dbx, i.GuildID, targetUser.ID)
+	} else {
+		member, memberErr = internal.GetMemberByFamilyName(dbx, i.GuildID, familyName)
+	}
+
+	if memberErr != nil {
+		if errors.Is(memberErr, sql.ErrNoRows) {
+			discord.FollowUpEphemeral(s, i, "Member not found.")
 			return
 		}
-		log.Printf("checkattendance lookup error: %v", err)
-		discord.RespondEphemeral(s, i, "Failed to retrieve member information. Please try again.")
+		log.Printf("checkattendance lookup error: %v", memberErr)
+		discord.FollowUpEphemeral(s, i, "Failed to retrieve member information. Please try again.")
 		return
 	}
 
@@ -154,7 +168,7 @@ func handleCheckAttendance(s *discordgo.Session, i *discordgo.InteractionCreate,
 	result, err := checker.CheckMemberAttendance(i.GuildID, member.ID, int(weeksBack))
 	if err != nil {
 		log.Printf("checkattendance error: %v", err)
-		discord.RespondEphemeral(s, i, "Failed to check attendance. Please try again.")
+		discord.FollowUpEphemeral(s, i, "Failed to check attendance. Please try again.")
 		return
 	}
 
@@ -176,6 +190,6 @@ func handleCheckAttendance(s *discordgo.Session, i *discordgo.InteractionCreate,
 		}
 	}
 
-	// Send response
-	discord.RespondText(s, i, message.String())
+	// Send follow-up response
+	discord.FollowUpText(s, i, message.String())
 }
