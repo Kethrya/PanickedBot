@@ -140,6 +140,8 @@ CREATE TABLE IF NOT EXISTS wars (
   war_date         DATE NOT NULL,
   label            VARCHAR(255) NULL,
   result           ENUM('win','lose') NULL COMMENT 'War result: win or lose',
+  war_type         ENUM('node','siege') NULL COMMENT 'Type of war: node war or siege',
+  tier             ENUM('1','2','uncapped') NULL COMMENT 'War tier: 1, 2, or uncapped',
   is_excluded      TINYINT(1) NOT NULL DEFAULT 0,
   created_at       DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   PRIMARY KEY (id),

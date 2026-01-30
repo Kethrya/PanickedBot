@@ -28,7 +28,7 @@ func formatWarStatLine(stat db.WarStats) string {
 		deathsStr = fmt.Sprintf("%d", stat.TotalDeaths)
 
 		if stat.MostRecentWar != nil {
-			mostRecentStr = stat.MostRecentWar.Format("2006-01-02")
+			mostRecentStr = stat.MostRecentWar.Format("02-01-06")
 		}
 
 		// Calculate K/D ratio
@@ -52,8 +52,35 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 		return
 	}
 
+	// Parse command options
+	var dateStr string
+	includeInactive := true // default to true
+	var includeMercs bool
+	var teamName string
+	
+	options := i.ApplicationCommandData().Options
+	for _, opt := range options {
+		switch opt.Name {
+		case "date":
+			dateStr = opt.StringValue()
+		case "include_inactive":
+			includeInactive = opt.BoolValue()
+		case "include_mercs":
+			includeMercs = opt.BoolValue()
+		case "team":
+			teamName = opt.StringValue()
+		}
+	}
+
+	// If date is provided, show stats for that specific war
+	if dateStr != "" {
+		handleWarStatsByDate(s, i, dbx, dateStr)
+		return
+	}
+
+	// Otherwise, show stats for all wars (original behavior)
 	// Get war statistics
-	stats, err := db.GetWarStats(dbx, i.GuildID)
+	stats, err := db.GetWarStats(dbx, i.GuildID, includeInactive, includeMercs, teamName)
 	if err != nil {
 		log.Printf("warstats error: %v", err)
 		discord.RespondEphemeral(s, i, "Failed to retrieve war statistics. Please try again.")
@@ -61,7 +88,7 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 	}
 
 	if len(stats) == 0 {
-		discord.RespondEphemeral(s, i, "No active roster members found.")
+		discord.RespondEphemeral(s, i, "No roster members found with war participation.")
 		return
 	}
 
@@ -112,6 +139,85 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 	}
 }
 
+// handleWarStatsByDate shows war statistics for a specific date
+func handleWarStatsByDate(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, dateStr string) {
+	// Parse the date in Eastern timezone
+	est := getEasternLocation()
+	warDate, err := time.ParseInLocation("02-01-06", dateStr, est)
+	if err != nil {
+		discord.RespondEphemeral(s, i, "Invalid date format. Please use DD-MM-YY format (e.g., 15-01-25).")
+		return
+	}
+
+	// Get war statistics for this specific date
+	stats, err := db.GetWarStatsByDate(dbx, i.GuildID, warDate)
+	if err != nil {
+		log.Printf("warstats by date error: %v", err)
+		discord.RespondEphemeral(s, i, "Failed to retrieve war statistics. Please try again.")
+		return
+	}
+
+	if len(stats) == 0 {
+		discord.RespondEphemeral(s, i, fmt.Sprintf("No war data found for date %s.", dateStr))
+		return
+	}
+
+	// Calculate totals
+	var totalKills, totalDeaths int
+	for _, stat := range stats {
+		totalKills += stat.Kills
+		totalDeaths += stat.Deaths
+	}
+
+	// Calculate overall K/D ratio
+	var overallKD string
+	if totalDeaths > 0 {
+		kd := float64(totalKills) / float64(totalDeaths)
+		overallKD = fmt.Sprintf("%.2f", kd)
+	} else if totalKills > 0 {
+		overallKD = fmt.Sprintf("%.2f", float64(totalKills))
+	} else {
+		overallKD = "0.00"
+	}
+
+	// Build response message with aligned columns
+	var response strings.Builder
+	response.WriteString(fmt.Sprintf("**War Statistics for %s**\n```\n", dateStr))
+
+	// Header
+	response.WriteString(fmt.Sprintf("%-20s %10s %10s %10s\n",
+		"Family Name", "Kills", "Deaths", "K/D"))
+	response.WriteString(strings.Repeat("-", 55) + "\n")
+
+	// Data rows
+	for _, stat := range stats {
+		familyName := truncateString(stat.FamilyName, 20)
+		
+		// Calculate K/D ratio for this member
+		var kdStr string
+		if stat.Deaths > 0 {
+			kd := float64(stat.Kills) / float64(stat.Deaths)
+			kdStr = fmt.Sprintf("%.2f", kd)
+		} else if stat.Kills > 0 {
+			kdStr = fmt.Sprintf("%.2f", float64(stat.Kills))
+		} else {
+			kdStr = "0.00"
+		}
+
+		response.WriteString(fmt.Sprintf("%-20s %10d %10d %10s\n",
+			familyName, stat.Kills, stat.Deaths, kdStr))
+	}
+
+	// Add totals line
+	response.WriteString(strings.Repeat("-", 55) + "\n")
+	response.WriteString(fmt.Sprintf("%-20s %10d %10d %10s\n",
+		"TOTAL", totalKills, totalDeaths, overallKD))
+
+	response.WriteString("```")
+
+	discord.RespondText(s, i, response.String())
+}
+
 func handleWarResults(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, cfg *GuildConfig) {
 	if !hasOfficerPermission(s, i, cfg) {
 		discord.RespondEphemeral(s, i, "You need officer role or admin permission to use this command.")
@@ -160,7 +266,7 @@ func handleWarResults(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 
 	// Data rows
 	for _, result := range results {
-		dateStr := result.WarDate.Format("2006-01-02")
+		dateStr := result.WarDate.Format("02-01-06")
 		
 		// Format result as W/L or empty
 		var resultStr string
@@ -206,16 +312,17 @@ func handleRemoveWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 	// Get the date parameter
 	options := i.ApplicationCommandData().Options
 	if len(options) == 0 {
-		discord.RespondEphemeral(s, i, "Please provide a date in YYYY-MM-DD format.")
+		discord.RespondEphemeral(s, i, "Please provide a date in DD-MM-YY format.")
 		return
 	}
 
 	dateStr := options[0].StringValue()
 
-	// Parse the date
-	warDate, err := time.Parse("2006-01-02", dateStr)
+	// Parse the date in Eastern timezone
+	est := getEasternLocation()
+	warDate, err := time.ParseInLocation("02-01-06", dateStr, est)
 	if err != nil {
-		discord.RespondEphemeral(s, i, "Invalid date format. Please use YYYY-MM-DD format (e.g., 2025-01-15).")
+		discord.RespondEphemeral(s, i, "Invalid date format. Please use DD-MM-YY format (e.g., 15-01-25).")
 		return
 	}
 

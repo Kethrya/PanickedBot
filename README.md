@@ -1,3 +1,5 @@
+[![Build and Test](https://github.com/Kethrya/PanickedBot/actions/workflows/build.yml/badge.svg)](https://github.com/Kethrya/PanickedBot/actions/workflows/build.yml)
+
 # PanickedBot
 
 A Discord bot **explicitly designed for tracking Black Desert Online (BDO) guilds and wars**. It helps guilds manage wars, roster members, team assignments, and track war statistics.
@@ -140,6 +142,18 @@ The bot will:
 3. Register all slash commands globally
 4. Start listening for interactions
 
+### Command-Line Flags
+
+#### `-deregister`
+Deregister all Discord commands and exit. This is useful for cleaning up commands during development or before uninstalling the bot.
+
+**Usage:**
+```bash
+./PanickedBot -deregister
+```
+
+**Note:** This flag only requires the `DISCORD_BOT_TOKEN` environment variable. It does not connect to the database.
+
 ## Bot Commands
 
 ### Initial Setup
@@ -152,12 +166,6 @@ The bot will:
 - `officer_role` (optional) - Role allowed to manage members, wars, etc.
 - `guild_member_role` (optional) - Role required for members to update their own information
 - `mercenary_role` (optional) - Role for mercenary members
-
-### General Commands
-
-#### `/ping`
-**Description:** Health check to verify bot is responsive  
-**Required Role:** None
 
 ### Member Management
 
@@ -208,15 +216,24 @@ The bot will:
 **Required Role:** Officer Role  
 **Parameters:**
 - `member` (required) - Discord member going on vacation
-- `start_date` (required) - Vacation start date in YYYY-MM-DD format (e.g., 2024-12-25)
-- `end_date` (required) - Vacation end date in YYYY-MM-DD format (e.g., 2024-12-31)
+- `start_date` (required) - Vacation start date in DD-MM-YY format (e.g., 25-12-24) in Eastern Time
+- `end_date` (required) - Vacation end date in DD-MM-YY format (e.g., 31-12-24) in Eastern Time
 - `reason` (optional) - Optional reason for vacation
 
-**Note:** End date must be on or after start date. This helps track member availability during guild wars.
+**Note:** End date must be on or after start date. This helps track member availability during guild wars. All dates are in Eastern Time Zone (America/New_York) to match typical guild war schedules.
 
 #### `/roster`
 **Description:** Get all roster member information  
 **Required Role:** Officer Role
+
+#### `/link`
+**Description:** Link a Discord member to a family name  
+**Required Role:** Officer Role  
+**Parameters:**
+- `member` (required) - Discord member to link
+- `family_name` (required) - Family name in BDO to link to the member
+
+**Note:** This command will create a new roster entry if the Discord member doesn't exist in the roster, or update the family name if they already exist. This is useful for quickly associating Discord members with their BDO family names.
 
 #### `/merc`
 **Description:** Mark a member as mercenary or not  
@@ -238,7 +255,7 @@ The bot will:
 - Number of weeks attended
 - List of missed weeks (if 5 or fewer)
 
-**Note:** Attendance tracking only considers weeks after the member was added to the roster. Inactive members are excluded from checks.
+**Note:** Attendance tracking only considers weeks after the member was added to the roster. Inactive members are excluded from checks. Week calculations are done in Eastern Time Zone (America/New_York).
 
 #### `/checkattendance`
 **Description:** Check attendance for a specific member  
@@ -255,7 +272,7 @@ The bot will:
 - Number of weeks missed
 - List of all missed weeks
 
-**Note:** Either `member` or `family_name` must be provided. Weeks covered by vacation are not counted as missed.
+**Note:** Either `member` or `family_name` must be provided. Weeks covered by vacation are not counted as missed. Week calculations are done in Eastern Time Zone (America/New_York).
 
 ### Team Management
 
@@ -279,37 +296,54 @@ The bot will:
 **Parameters:**
 - `file` (required) - CSV or image file (<5MB for images, <10MB for CSV) with war data
 - `result` (required) - War result (Win or Lose)
+- `war_type` (required) - Type of war (Node War or Siege)
+- `tier` (required) - War tier (Tier 1, Tier 2, or Uncapped)
 
 **CSV Format:**
 ```
-2024-01-15
+15-01-24
 FamilyName1,10,5
 FamilyName2,15,8
 ...
 ```
-- First line: Date in YYYY-MM-DD format
+- First line: Date in DD-MM-YY format (Eastern Time)
 - Following lines: family_name,kills,deaths
 
 **Image Format:**
 - Supported formats: PNG, JPG, JPEG, WEBP
 - Maximum size: 5MB
 - Screenshot should contain:
-  - War date at the top
+  - War date at the top in DD-MM-YY format
   - Family names in the leftmost column
   - Kills and deaths in the two rightmost columns
 - Requires `OPENAI_API_KEY` environment variable to be set
 - Images are automatically saved to the `uploads/` directory with Discord user ID and timestamp
 
+**Note:** All dates are in Eastern Time Zone (America/New_York) to match typical guild war schedules.
+
 #### `/warstats`
-**Description:** Get war statistics for all roster members  
+**Description:** Get war statistics for all roster members or a specific war date  
 **Required Role:** Officer Role  
-**Output:** Displays total wars, most recent war date, kills, deaths, and K/D ratio for each active member
+**Parameters:**
+- `date` (optional) - War date in DD-MM-YY format to show stats for that specific war
+- `include_inactive` (optional) - Include inactive members in results (default: true)
+- `include_mercs` (optional) - Include mercenary members in results (default: false)
+- `team` (optional) - Filter results to only members of this team
+
+**Output:** 
+- When no date is provided: Displays total wars, most recent war date, kills, deaths, and K/D ratio for each member across all wars. Only shows members who have participated in at least one war.
+- When date is provided: Displays kills, deaths, and K/D ratio for each member who participated in that specific war, along with overall totals for the war
+
+**Notes:** 
+- All dates are in Eastern Time Zone (America/New_York)
+- Members with zero war participation are automatically excluded from results
+- All name comparisons are case-insensitive for family names and team names
 
 #### `/warresults`
 **Description:** Get results of all wars from most recent to oldest  
 **Required Role:** Officer Role  
 **Output:** Displays for each war:
-- Date (YYYY-MM-DD format)
+- Date (DD-MM-YY format)
 - Result (W for Win, L for Lose)
 - Total kills for the guild
 - Total deaths for the guild
@@ -320,7 +354,7 @@ FamilyName2,15,8
 **Description:** Remove war data for a specific date  
 **Required Role:** Officer Role  
 **Parameters:**
-- `date` (required) - War date in YYYY-MM-DD format (e.g., 2025-01-15)
+- `date` (required) - War date in DD-MM-YY format (e.g., 15-01-25) in Eastern Time
 
 **Note:** This command will remove all war data for the specified date, including all individual member statistics. The operation cannot be undone.
 

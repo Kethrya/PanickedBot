@@ -347,71 +347,133 @@ type UpdateFields struct {
 	DP          *int
 }
 
-// UpdateMember updates member fields using raw SQL (not yet migrated to sqlc)
+// UpdateMember updates member fields using sqlc-generated queries
 func UpdateMember(db *DB, memberID int64, fields UpdateFields) error {
-	updates := []string{}
-	args := []interface{}{}
-
-	if fields.FamilyName != nil {
-		updates = append(updates, "family_name = ?")
-		args = append(args, *fields.FamilyName)
-	}
-	if fields.DisplayName != nil {
-		updates = append(updates, "display_name = ?")
-		args = append(args, *fields.DisplayName)
-	}
-	if fields.Class != nil {
-		updates = append(updates, "class = ?")
-		args = append(args, *fields.Class)
-	}
-	if fields.Spec != nil {
-		updates = append(updates, "spec = ?")
-		args = append(args, *fields.Spec)
-	}
-	if fields.MeetsCap != nil {
-		updates = append(updates, "meets_cap = ?")
-		args = append(args, *fields.MeetsCap)
-	}
-	if fields.AP != nil {
-		updates = append(updates, "ap = ?")
-		args = append(args, *fields.AP)
-	}
-	if fields.AAP != nil {
-		updates = append(updates, "aap = ?")
-		args = append(args, *fields.AAP)
-	}
-	if fields.DP != nil {
-		updates = append(updates, "dp = ?")
-		args = append(args, *fields.DP)
-	}
-
-	if len(updates) == 0 {
-		return fmt.Errorf("no fields to update")
-	}
-
-	args = append(args, memberID)
-
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	_, err := db.ExecContext(ctx, `
-		UPDATE roster_members 
-		SET `+strings.Join(updates, ", ")+`
-		WHERE id = ?
-	`, args...)
+	hasUpdates := false
 
-	return err
+	if fields.FamilyName != nil {
+		err := db.Queries.UpdateMemberFamilyName(ctx, sqlcdb.UpdateMemberFamilyNameParams{
+			FamilyName: *fields.FamilyName,
+			ID:         uint64(memberID),
+		})
+		if err != nil {
+			return err
+		}
+		hasUpdates = true
+	}
+
+	if fields.DisplayName != nil {
+		err := db.Queries.UpdateMemberDisplayName(ctx, sqlcdb.UpdateMemberDisplayNameParams{
+			DisplayName: sql.NullString{String: *fields.DisplayName, Valid: true},
+			ID:          uint64(memberID),
+		})
+		if err != nil {
+			return err
+		}
+		hasUpdates = true
+	}
+
+	if fields.Class != nil {
+		err := db.Queries.UpdateMemberClass(ctx, sqlcdb.UpdateMemberClassParams{
+			Class: sql.NullString{String: *fields.Class, Valid: true},
+			ID:    uint64(memberID),
+		})
+		if err != nil {
+			return err
+		}
+		hasUpdates = true
+	}
+
+	if fields.Spec != nil {
+		err := db.Queries.UpdateMemberSpec(ctx, sqlcdb.UpdateMemberSpecParams{
+			Spec: sql.NullString{String: *fields.Spec, Valid: true},
+			ID:   uint64(memberID),
+		})
+		if err != nil {
+			return err
+		}
+		hasUpdates = true
+	}
+
+	if fields.MeetsCap != nil {
+		err := db.Queries.UpdateMemberMeetsCap(ctx, sqlcdb.UpdateMemberMeetsCapParams{
+			MeetsCap: *fields.MeetsCap,
+			ID:       uint64(memberID),
+		})
+		if err != nil {
+			return err
+		}
+		hasUpdates = true
+	}
+
+	// Handle gear stats - use the combined query if all three are provided
+	if fields.AP != nil && fields.AAP != nil && fields.DP != nil {
+		err := db.Queries.UpdateMemberGearStats(ctx, sqlcdb.UpdateMemberGearStatsParams{
+			Ap:  sql.NullInt32{Int32: int32(*fields.AP), Valid: true},
+			Aap: sql.NullInt32{Int32: int32(*fields.AAP), Valid: true},
+			Dp:  sql.NullInt32{Int32: int32(*fields.DP), Valid: true},
+			ID:  uint64(memberID),
+		})
+		if err != nil {
+			return err
+		}
+		hasUpdates = true
+	} else {
+		// Update individual gear stats if only some are provided
+		if fields.AP != nil {
+			err := db.Queries.UpdateMemberAP(ctx, sqlcdb.UpdateMemberAPParams{
+				Ap: sql.NullInt32{Int32: int32(*fields.AP), Valid: true},
+				ID: uint64(memberID),
+			})
+			if err != nil {
+				return err
+			}
+			hasUpdates = true
+		}
+
+		if fields.AAP != nil {
+			err := db.Queries.UpdateMemberAAP(ctx, sqlcdb.UpdateMemberAAPParams{
+				Aap: sql.NullInt32{Int32: int32(*fields.AAP), Valid: true},
+				ID:  uint64(memberID),
+			})
+			if err != nil {
+				return err
+			}
+			hasUpdates = true
+		}
+
+		if fields.DP != nil {
+			err := db.Queries.UpdateMemberDP(ctx, sqlcdb.UpdateMemberDPParams{
+				Dp: sql.NullInt32{Int32: int32(*fields.DP), Valid: true},
+				ID: uint64(memberID),
+			})
+			if err != nil {
+				return err
+			}
+			hasUpdates = true
+		}
+	}
+
+	if !hasUpdates {
+		return fmt.Errorf("no fields to update")
+	}
+
+	return nil
 }
 
-// CreateMember creates a new roster member using raw SQL (not yet migrated to sqlc)
+// CreateMember creates a new roster member using sqlc-generated query
 func CreateMember(db *DB, guildID, discordUserID, familyName string) (int64, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	result, err := db.ExecContext(ctx, `
-		INSERT INTO roster_members (discord_guild_id, discord_user_id, family_name, is_active)
-		VALUES (?, ?, ?, 1)
-	`, guildID, discordUserID, familyName)
+	result, err := db.Queries.CreateMember(ctx, sqlcdb.CreateMemberParams{
+		DiscordGuildID: guildID,
+		DiscordUserID:  sql.NullString{String: discordUserID, Valid: true},
+		FamilyName:     familyName,
+	})
 
 	if err != nil {
 		return 0, err

@@ -29,7 +29,6 @@ func getSpecChoices() []*discordgo.ApplicationCommandOptionChoice {
 // GetCommands returns all application commands
 func GetCommands() []*discordgo.ApplicationCommand {
 	return []*discordgo.ApplicationCommand{
-		{Name: "ping", Description: "health check"},
 		setupCommand(),
 		{
 			Name:        "addteam",
@@ -197,6 +196,24 @@ func GetCommands() []*discordgo.ApplicationCommand {
 			Description: "Get all roster member information (officer role required)",
 		},
 		{
+			Name:        "link",
+			Description: "Link a Discord member to a family name (officer role required)",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionUser,
+					Name:        "member",
+					Description: "Discord member to link",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "family_name",
+					Description: "Family name in BDO to link to the member",
+					Required:    true,
+				},
+			},
+		},
+		{
 			Name:        "merc",
 			Description: "Mark a member as mercenary or not (officer role required)",
 			Options: []*discordgo.ApplicationCommandOption{
@@ -227,13 +244,13 @@ func GetCommands() []*discordgo.ApplicationCommand {
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "start_date",
-					Description: "Vacation start date (YYYY-MM-DD)",
+					Description: "Vacation start date (DD-MM-YY)",
 					Required:    true,
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "end_date",
-					Description: "Vacation end date (YYYY-MM-DD)",
+					Description: "Vacation end date (DD-MM-YY)",
 					Required:    true,
 				},
 				{
@@ -246,7 +263,33 @@ func GetCommands() []*discordgo.ApplicationCommand {
 		},
 		{
 			Name:        "warstats",
-			Description: "Get war statistics for all roster members (officer role required)",
+			Description: "Get war statistics for all roster members or a specific war date (officer role required)",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "date",
+					Description: "Optional war date in DD-MM-YY format to show stats for that specific war",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "include_inactive",
+					Description: "Include inactive members in results (default: true)",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "include_mercs",
+					Description: "Include mercenary members in results (default: false)",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "team",
+					Description: "Filter results to only members of this team",
+					Required:    false,
+				},
+			},
 		},
 		{
 			Name:        "warresults",
@@ -259,7 +302,7 @@ func GetCommands() []*discordgo.ApplicationCommand {
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "date",
-					Description: "War date in YYYY-MM-DD format",
+					Description: "War date in DD-MM-YY format",
 					Required:    true,
 				},
 			},
@@ -282,6 +325,27 @@ func GetCommands() []*discordgo.ApplicationCommand {
 					Choices: []*discordgo.ApplicationCommandOptionChoice{
 						{Name: "Win", Value: "win"},
 						{Name: "Lose", Value: "lose"},
+					},
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "war_type",
+					Description: "Type of war",
+					Required:    true,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{Name: "Node War", Value: "node"},
+						{Name: "Siege", Value: "siege"},
+					},
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "tier",
+					Description: "War tier",
+					Required:    true,
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{Name: "Tier 1", Value: "1"},
+						{Name: "Tier 2", Value: "2"},
+						{Name: "Uncapped", Value: "uncapped"},
 					},
 				},
 			},
@@ -371,9 +435,6 @@ func CreateInteractionHandler(database *db.DB) func(s *discordgo.Session, i *dis
 
 		switch i.ApplicationCommandData().Name {
 
-		case "ping":
-			discord.RespondText(s, i, "pong")
-
 		case "addteam":
 			handleAddTeam(s, i, database, cfg)
 
@@ -397,6 +458,9 @@ func CreateInteractionHandler(database *db.DB) func(s *discordgo.Session, i *dis
 
 		case "roster":
 			handleGetRoster(s, i, database, cfg)
+
+		case "link":
+			handleLink(s, i, database, cfg)
 
 		case "merc":
 			handleMerc(s, i, database, cfg)

@@ -18,12 +18,36 @@ type WarStats struct {
 	TotalDeaths   int
 }
 
-// GetWarStats retrieves war statistics for all active members
-func GetWarStats(db *DB, guildID string) ([]WarStats, error) {
+// GetWarStats retrieves war statistics for members
+// includeInactive: if true, includes inactive members in results (default true)
+// includeMercs: if true, includes mercenary members in results (default false)
+// teamName: if not empty, filters results to only members of that team
+func GetWarStats(db *DB, guildID string, includeInactive bool, includeMercs bool, teamName string) ([]WarStats, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	rows, err := db.Queries.GetWarStats(ctx, guildID)
+	// Prepare parameters
+	var includeInactiveVal interface{} = 0
+	if includeInactive {
+		includeInactiveVal = 1
+	}
+
+	var includeMercsVal interface{} = 0
+	if includeMercs {
+		includeMercsVal = 1
+	}
+
+	var teamNameVal sql.NullString
+	if teamName != "" {
+		teamNameVal = sql.NullString{String: teamName, Valid: true}
+	}
+
+	rows, err := db.Queries.GetWarStats(ctx, sqlcdb.GetWarStatsParams{
+		DiscordGuildID:  guildID,
+		IncludeInactive: includeInactiveVal,
+		IncludeMercs:    includeMercsVal,
+		TeamName:        teamNameVal,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +82,7 @@ type WarLineData struct {
 }
 
 // CreateWarFromCSV creates a war entry and associated war lines from CSV data
-func CreateWarFromCSV(db *DB, guildID string, requestChannelID string, requestMessageID string, requestedByUserID string, warDate time.Time, warResult string, warLines []WarLineData) error {
+func CreateWarFromCSV(db *DB, guildID string, requestChannelID string, requestMessageID string, requestedByUserID string, warDate time.Time, warResult string, warType string, tier string, warLines []WarLineData) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -93,13 +117,27 @@ func CreateWarFromCSV(db *DB, guildID string, requestChannelID string, requestMe
 		resultField = sqlcdb.NullWarsResult{WarsResult: sqlcdb.WarsResult(warResult), Valid: true}
 	}
 
+	// Prepare the war_type field
+	var warTypeField sqlcdb.NullWarsWarType
+	if warType != "" {
+		warTypeField = sqlcdb.NullWarsWarType{WarsWarType: sqlcdb.WarsWarType(warType), Valid: true}
+	}
+
+	// Prepare the tier field
+	var tierField sqlcdb.NullWarsTier
+	if tier != "" {
+		tierField = sqlcdb.NullWarsTier{WarsTier: sqlcdb.WarsTier(tier), Valid: true}
+	}
+
 	// Create war entry
 	warDBResult, err := qtx.CreateWar(ctx, sqlcdb.CreateWarParams{
 		DiscordGuildID: guildID,
 		JobID:          uint64(jobID),
 		WarDate:        warDate,
-		Label:          sql.NullString{String: fmt.Sprintf("CSV Import - %s", warDate.Format("2006-01-02")), Valid: true},
+		Label:          sql.NullString{String: fmt.Sprintf("CSV Import - %s", warDate.Format("02-01-06")), Valid: true},
 		Result:         resultField,
+		WarType:        warTypeField,
+		Tier:           tierField,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create war: %w", err)
@@ -115,7 +153,7 @@ func CreateWarFromCSV(db *DB, guildID string, requestChannelID string, requestMe
 		// Try to match the family name to a roster member (case insensitive)
 		rosterMemberID, err := qtx.GetRosterMemberByFamilyName(ctx, sqlcdb.GetRosterMemberByFamilyNameParams{
 			DiscordGuildID: guildID,
-			LOWER:          line.FamilyName,
+			FamilyName:     line.FamilyName,
 		})
 
 		var memberID sql.NullInt64
@@ -220,8 +258,47 @@ func DeleteWarByDate(db *DB, guildID string, warDate time.Time) error {
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("no war found for date %s", warDate.Format("2006-01-02"))
+		return fmt.Errorf("no war found for date %s", warDate.Format("02-01-06"))
 	}
 
 	return nil
+}
+
+// WarStatByDate represents war statistics for a member on a specific date
+type WarStatByDate struct {
+	FamilyName string
+	Kills      int
+	Deaths     int
+}
+
+// GetWarStatsByDate retrieves war statistics for a specific date
+func GetWarStatsByDate(db *DB, guildID string, warDate time.Time) ([]WarStatByDate, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rows, err := db.Queries.GetWarStatsByDate(ctx, sqlcdb.GetWarStatsByDateParams{
+		DiscordGuildID: guildID,
+		WarDate:        warDate,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	stats := make([]WarStatByDate, 0, len(rows))
+	for _, row := range rows {
+		// Handle NullString for FamilyName
+		familyName := ""
+		if row.FamilyName.Valid {
+			familyName = row.FamilyName.String
+		}
+
+		stat := WarStatByDate{
+			FamilyName: familyName,
+			Kills:      int(row.Kills),
+			Deaths:     int(row.Deaths),
+		}
+		stats = append(stats, stat)
+	}
+
+	return stats, nil
 }

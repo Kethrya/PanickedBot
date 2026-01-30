@@ -48,7 +48,7 @@ func cleanCSVContent(content string) string {
 }
 
 // parseWarCSV parses a CSV file with war data
-// First line: date in YYYY-mm-dd format
+// First line: date in DD-MM-YY format
 // Remaining lines: family_name, kills, deaths
 func parseWarCSV(content io.Reader) (warDate time.Time, warLines []db.WarLineData, err error) {
 	reader := csv.NewReader(content)
@@ -65,10 +65,11 @@ func parseWarCSV(content io.Reader) (warDate time.Time, warLines []db.WarLineDat
 		return time.Time{}, nil, fmt.Errorf("date line is empty")
 	}
 
-	// Parse date
-	warDate, err = time.Parse("2006-01-02", strings.TrimSpace(dateRecord[0]))
+	// Parse date in Eastern timezone
+	est := getEasternLocation()
+	warDate, err = time.ParseInLocation("02-01-06", strings.TrimSpace(dateRecord[0]), est)
 	if err != nil {
-		return time.Time{}, nil, fmt.Errorf("invalid date format (expected YYYY-mm-dd): %w", err)
+		return time.Time{}, nil, fmt.Errorf("invalid date format (expected DD-MM-YY): %w", err)
 	}
 
 	// Read remaining lines (war data)
@@ -226,16 +227,17 @@ func processImageWithOpenAI(imageData []byte, mimeType string) (warDate time.Tim
 	// Create the prompt for OpenAI
 	prompt := "Extract the war statistics from this screenshot and return them in CSV format.\n\n" +
 		"The screenshot contains war data with the following information:\n" +
-		"- The date of the war is at the top of the screenshot\n" +
+		"- The date of the war is at the top of the screenshot in DD-MM-YY format (e.g., 20-03-25 for March 20, 2025)\n" +
 		"- The leftmost column contains family names\n" +
 		"- The last two columns (rightmost) contain kills and deaths\n" +
 		"- All other columns should be ignored\n\n" +
-		"IMPORTANT: The date MUST be returned in YYYY-MM-DD format (e.g., 2025-03-20), regardless of how it appears in the screenshot. If the date is in a different format (e.g., MM/DD/YYYY, DD-MM-YYYY), convert it to YYYY-MM-DD format.\n\n" +
+		"IMPORTANT: The date in the screenshot is in DD-MM-YY format. You MUST return the date in the EXACT SAME DD-MM-YY format as shown in the screenshot. Do NOT convert it to any other format.\n\n" +
+		"IMPORTANT: If you encounter a family name that reads as 'hammiity', 'hammitty', 'hammity', or similar variations, the correct name is 'hammity' (all lowercase).\n\n" +
 		"Please return the data in this exact CSV format:\n" +
-		"First line: date in YYYY-MM-DD format\n" +
+		"First line: date in DD-MM-YY format (exactly as shown in the screenshot)\n" +
 		"Following lines: family_name,kills,deaths\n\n" +
 		"Example output:\n" +
-		"2025-03-20\n" +
+		"20-03-25\n" +
 		"FamilyName1,10,5\n" +
 		"FamilyName2,15,8\n\n" +
 		"CRITICAL: Return ONLY the CSV data with NO markdown formatting, NO code blocks (```), NO explanatory text, and NO additional formatting. Just the raw CSV data."
@@ -249,7 +251,8 @@ func processImageWithOpenAI(imageData []byte, mimeType string) (warDate time.Tim
 						OfArrayOfContentParts: []openai.ChatCompletionContentPartUnionParam{
 							openai.TextContentPart(prompt),
 							openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
-								URL: imageBase64,
+								URL:    imageBase64,
+								Detail: "high", // Use high quality for best OCR accuracy
 							}),
 						},
 					},
@@ -297,18 +300,32 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 		return
 	}
 
-	// Get the result parameter
+	// Parse options
 	options := i.ApplicationCommandData().Options
-	var warResult string
+	var warResult, warType, tier string
 	for _, opt := range options {
-		if opt.Name == "result" {
+		switch opt.Name {
+		case "result":
 			warResult = opt.StringValue()
-			break
+		case "war_type":
+			warType = opt.StringValue()
+		case "tier":
+			tier = opt.StringValue()
 		}
 	}
 
 	if warResult == "" {
 		discord.RespondEphemeral(s, i, "Please select a war result (Win or Lose).")
+		return
+	}
+
+	if warType == "" {
+		discord.RespondEphemeral(s, i, "Please select a war type (Node War or Siege).")
+		return
+	}
+
+	if tier == "" {
+		discord.RespondEphemeral(s, i, "Please select a war tier (Tier 1, Tier 2, or Uncapped).")
 		return
 	}
 
@@ -472,7 +489,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 	}
 
 	// Create the war entry
-	err = db.CreateWarFromCSV(dbx, i.GuildID, i.ChannelID, i.ID, i.Member.User.ID, warDate, warResult, warLines)
+	err = db.CreateWarFromCSV(dbx, i.GuildID, i.ChannelID, i.ID, i.Member.User.ID, warDate, warResult, warType, tier, warLines)
 	if err != nil {
 		log.Printf("addwar create error: %v", err)
 		if isImage {
@@ -483,7 +500,8 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 		return
 	}
 
-	successMsg := fmt.Sprintf("War data imported successfully!\nDate: %s\nResult: %s\nEntries: %d", warDate.Format("2006-01-02"), strings.Title(warResult), len(warLines))
+	successMsg := fmt.Sprintf("War data imported successfully!\nDate: %s\nResult: %s\nType: %s\nTier: %s\nEntries: %d", 
+		warDate.Format("02-01-06"), strings.Title(warResult), strings.Title(warType), tier, len(warLines))
 	if isImage {
 		discord.FollowUpText(s, i, successMsg)
 	} else {
