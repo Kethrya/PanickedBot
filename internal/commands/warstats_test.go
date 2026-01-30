@@ -34,7 +34,7 @@ func TestFormatWarStatLine(t *testing.T) {
 				TotalKills:    50,
 				TotalDeaths:   25,
 			},
-			contains: []string{"PlayerOne", "5", "2024-01-15", "50", "25", "2.00"},
+			contains: []string{"PlayerOne", "5", "15-01-24", "50", "25", "2.00"},
 		},
 		{
 			name: "zero deaths K/D",

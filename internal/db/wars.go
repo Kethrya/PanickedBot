@@ -98,7 +98,7 @@ func CreateWarFromCSV(db *DB, guildID string, requestChannelID string, requestMe
 		DiscordGuildID: guildID,
 		JobID:          uint64(jobID),
 		WarDate:        warDate,
-		Label:          sql.NullString{String: fmt.Sprintf("CSV Import - %s", warDate.Format("2006-01-02")), Valid: true},
+		Label:          sql.NullString{String: fmt.Sprintf("CSV Import - %s", warDate.Format("02-01-06")), Valid: true},
 		Result:         resultField,
 	})
 	if err != nil {
@@ -220,7 +220,7 @@ func DeleteWarByDate(db *DB, guildID string, warDate time.Time) error {
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("no war found for date %s", warDate.Format("2006-01-02"))
+		return fmt.Errorf("no war found for date %s", warDate.Format("02-01-06"))
 	}
 
 	return nil

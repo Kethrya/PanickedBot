@@ -25,7 +25,7 @@ type WeekPeriod struct {
 
 // String returns a formatted string representation of the week
 func (w WeekPeriod) String() string {
-	return fmt.Sprintf("%s to %s", w.StartDate.Format("2006-01-02"), w.EndDate.Format("2006-01-02"))
+	return fmt.Sprintf("%s to %s", w.StartDate.Format("02-01-06"), w.EndDate.Format("02-01-06"))
 }
 
 // GetWeekStart returns the start of the week (Sunday) for a given date
@@ -60,7 +60,9 @@ func GetWeekPeriod(date time.Time) WeekPeriod {
 // GetWeekPeriodsBack returns a list of week periods going back N weeks from today
 func GetWeekPeriodsBack(weeksBack int) []WeekPeriod {
 	weeks := make([]WeekPeriod, 0, weeksBack)
-	now := time.Now().UTC()
+	// Use Eastern time zone for consistency with guild war schedules
+	est := GetEasternLocation()
+	now := time.Now().In(est)
 	
 	for i := 0; i < weeksBack; i++ {
 		// Calculate the date for this week
@@ -110,7 +112,7 @@ func (ac *AttendanceChecker) CheckMemberAttendance(guildID string, memberID int6
 	// Build set of war dates for quick lookup
 	warDateSet := make(map[string]bool)
 	for _, date := range warDates {
-		warDateSet[date.Format("2006-01-02")] = true
+		warDateSet[date.Format("02-01-06")] = true
 	}
 
 	// Calculate which weeks to check
@@ -134,7 +136,7 @@ func (ac *AttendanceChecker) CheckMemberAttendance(guildID string, memberID int6
 		// Check if member participated in any war during this week
 		participated := false
 		for date := week.StartDate; !date.After(week.EndDate); date = date.AddDate(0, 0, 1) {
-			if warDateSet[date.Format("2006-01-02")] {
+			if warDateSet[date.Format("02-01-06")] {
 				participated = true
 				break
 			}

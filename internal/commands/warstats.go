@@ -28,7 +28,7 @@ func formatWarStatLine(stat db.WarStats) string {
 		deathsStr = fmt.Sprintf("%d", stat.TotalDeaths)
 
 		if stat.MostRecentWar != nil {
-			mostRecentStr = stat.MostRecentWar.Format("2006-01-02")
+			mostRecentStr = stat.MostRecentWar.Format("02-01-06")
 		}
 
 		// Calculate K/D ratio
@@ -160,7 +160,7 @@ func handleWarResults(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 
 	// Data rows
 	for _, result := range results {
-		dateStr := result.WarDate.Format("2006-01-02")
+		dateStr := result.WarDate.Format("02-01-06")
 		
 		// Format result as W/L or empty
 		var resultStr string
@@ -206,16 +206,17 @@ func handleRemoveWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 	// Get the date parameter
 	options := i.ApplicationCommandData().Options
 	if len(options) == 0 {
-		discord.RespondEphemeral(s, i, "Please provide a date in YYYY-MM-DD format.")
+		discord.RespondEphemeral(s, i, "Please provide a date in DD-MM-YY format.")
 		return
 	}
 
 	dateStr := options[0].StringValue()
 
-	// Parse the date
-	warDate, err := time.Parse("2006-01-02", dateStr)
+	// Parse the date in Eastern timezone
+	est := getEasternLocation()
+	warDate, err := time.ParseInLocation("02-01-06", dateStr, est)
 	if err != nil {
-		discord.RespondEphemeral(s, i, "Invalid date format. Please use YYYY-MM-DD format (e.g., 2025-01-15).")
+		discord.RespondEphemeral(s, i, "Invalid date format. Please use DD-MM-YY format (e.g., 15-01-25).")
 		return
 	}
 

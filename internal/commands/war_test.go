@@ -13,43 +13,43 @@ func TestCleanCSVContent(t *testing.T) {
 	}{
 		{
 			name: "CSV with markdown code blocks",
-			input: "```csv\n2026-01-29\nFamilyName1,10,5\nFamilyName2,15,8\n```",
-			expected: `2026-01-29
+			input: "```csv\n29-01-26\nFamilyName1,10,5\nFamilyName2,15,8\n```",
+			expected: `29-01-26
 FamilyName1,10,5
 FamilyName2,15,8`,
 		},
 		{
 			name: "CSV with triple backticks only",
-			input: "```\n2026-01-29\nFamilyName1,10,5\nFamilyName2,15,8\n```",
-			expected: `2026-01-29
+			input: "```\n29-01-26\nFamilyName1,10,5\nFamilyName2,15,8\n```",
+			expected: `29-01-26
 FamilyName1,10,5
 FamilyName2,15,8`,
 		},
 		{
 			name: "CSV with blank lines",
-			input: `2026-01-29
+			input: `29-01-26
 
 FamilyName1,10,5
 
 FamilyName2,15,8
 `,
-			expected: `2026-01-29
+			expected: `29-01-26
 FamilyName1,10,5
 FamilyName2,15,8`,
 		},
 		{
 			name: "CSV with markdown and blank lines",
-			input: "```csv\n\n2026-01-29\n\nFamilyName1,10,5\nFamilyName2,15,8\n\n```",
-			expected: `2026-01-29
+			input: "```csv\n\n29-01-26\n\nFamilyName1,10,5\nFamilyName2,15,8\n\n```",
+			expected: `29-01-26
 FamilyName1,10,5
 FamilyName2,15,8`,
 		},
 		{
 			name: "Clean CSV without any formatting",
-			input: `2026-01-29
+			input: `29-01-26
 FamilyName1,10,5
 FamilyName2,15,8`,
-			expected: `2026-01-29
+			expected: `29-01-26
 FamilyName1,10,5
 FamilyName2,15,8`,
 		},
@@ -70,10 +70,10 @@ FamilyName2,15,8`,
 		},
 		{
 			name: "CSV with leading/trailing whitespace",
-			input: `  2026-01-29  
+			input: `  29-01-26  
   FamilyName1,10,5  
   FamilyName2,15,8  `,
-			expected: `2026-01-29
+			expected: `29-01-26
 FamilyName1,10,5
 FamilyName2,15,8`,
 		},
@@ -99,20 +99,20 @@ func TestParseWarCSV(t *testing.T) {
 	}{
 		{
 			name: "Valid CSV",
-			input: `2026-01-29
+			input: `29-01-26
 FamilyName1,10,5
 FamilyName2,15,8`,
 			expectError:   false,
-			expectedDate:  "2026-01-29",
+			expectedDate:  "29-01-26",
 			expectedLines: 2,
 		},
 		{
 			name: "Valid CSV with cleaned content",
-			input: `2026-01-29
+			input: `29-01-26
 FamilyName1,10,5
 FamilyName2,15,8`,
 			expectError:   false,
-			expectedDate:  "2026-01-29",
+			expectedDate:  "29-01-26",
 			expectedLines: 2,
 		},
 		{
@@ -127,7 +127,7 @@ FamilyName2,15,8`,
 		},
 		{
 			name: "CSV with no war data",
-			input: `2026-01-29
+			input: `29-01-26
 `,
 			expectError: true,
 		},
@@ -149,8 +149,8 @@ FamilyName2,15,8`,
 				return
 			}
 
-			if warDate.Format("2006-01-02") != tt.expectedDate {
-				t.Errorf("parseWarCSV() date = %v, want %v", warDate.Format("2006-01-02"), tt.expectedDate)
+			if warDate.Format("02-01-06") != tt.expectedDate {
+				t.Errorf("parseWarCSV() date = %v, want %v", warDate.Format("02-01-06"), tt.expectedDate)
 			}
 
 			if len(warLines) != tt.expectedLines {

@@ -111,7 +111,7 @@ func TestWeekPeriodString(t *testing.T) {
 		EndDate:   time.Date(2026, 1, 17, 23, 59, 59, 0, time.UTC),
 	}
 
-	expected := "2026-01-11 to 2026-01-17"
+	expected := "11-01-26 to 17-01-26"
 	result := week.String()
 
 	if result != expected {

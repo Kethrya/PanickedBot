@@ -227,13 +227,13 @@ func GetCommands() []*discordgo.ApplicationCommand {
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "start_date",
-					Description: "Vacation start date (YYYY-MM-DD)",
+					Description: "Vacation start date (DD-MM-YY)",
 					Required:    true,
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "end_date",
-					Description: "Vacation end date (YYYY-MM-DD)",
+					Description: "Vacation end date (DD-MM-YY)",
 					Required:    true,
 				},
 				{
@@ -259,7 +259,7 @@ func GetCommands() []*discordgo.ApplicationCommand {
 				{
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "date",
-					Description: "War date in YYYY-MM-DD format",
+					Description: "War date in DD-MM-YY format",
 					Required:    true,
 				},
 			},

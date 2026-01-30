@@ -2,6 +2,7 @@ package commands
 
 import (
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 
@@ -10,6 +11,12 @@ import (
 
 // GuildConfig is a type alias for internal.GuildConfig for convenience
 type GuildConfig = internal.GuildConfig
+
+// getEasternLocation returns the Eastern timezone location (America/New_York)
+// This is a convenience wrapper around the internal.GetEasternLocation function
+func getEasternLocation() *time.Location {
+	return internal.GetEasternLocation()
+}
 
 // validClasses is the list of valid Black Desert Online classes
 var validClasses = map[string]bool{

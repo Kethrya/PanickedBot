@@ -140,6 +140,18 @@ The bot will:
 3. Register all slash commands globally
 4. Start listening for interactions
 
+### Command-Line Flags
+
+#### `-deregister`
+Deregister all Discord commands and exit. This is useful for cleaning up commands during development or before uninstalling the bot.
+
+**Usage:**
+```bash
+./PanickedBot -deregister
+```
+
+**Note:** This flag only requires the `DISCORD_BOT_TOKEN` environment variable. It does not connect to the database.
+
 ## Bot Commands
 
 ### Initial Setup
@@ -208,11 +220,11 @@ The bot will:
 **Required Role:** Officer Role  
 **Parameters:**
 - `member` (required) - Discord member going on vacation
-- `start_date` (required) - Vacation start date in YYYY-MM-DD format (e.g., 2024-12-25)
-- `end_date` (required) - Vacation end date in YYYY-MM-DD format (e.g., 2024-12-31)
+- `start_date` (required) - Vacation start date in DD-MM-YY format (e.g., 25-12-24) in Eastern Time
+- `end_date` (required) - Vacation end date in DD-MM-YY format (e.g., 31-12-24) in Eastern Time
 - `reason` (optional) - Optional reason for vacation
 
-**Note:** End date must be on or after start date. This helps track member availability during guild wars.
+**Note:** End date must be on or after start date. This helps track member availability during guild wars. All dates are in Eastern Time Zone (America/New_York) to match typical guild war schedules.
 
 #### `/roster`
 **Description:** Get all roster member information  
@@ -238,7 +250,7 @@ The bot will:
 - Number of weeks attended
 - List of missed weeks (if 5 or fewer)
 
-**Note:** Attendance tracking only considers weeks after the member was added to the roster. Inactive members are excluded from checks.
+**Note:** Attendance tracking only considers weeks after the member was added to the roster. Inactive members are excluded from checks. Week calculations are done in Eastern Time Zone (America/New_York).
 
 #### `/checkattendance`
 **Description:** Check attendance for a specific member  
@@ -255,7 +267,7 @@ The bot will:
 - Number of weeks missed
 - List of all missed weeks
 
-**Note:** Either `member` or `family_name` must be provided. Weeks covered by vacation are not counted as missed.
+**Note:** Either `member` or `family_name` must be provided. Weeks covered by vacation are not counted as missed. Week calculations are done in Eastern Time Zone (America/New_York).
 
 ### Team Management
 
@@ -282,23 +294,25 @@ The bot will:
 
 **CSV Format:**
 ```
-2024-01-15
+15-01-24
 FamilyName1,10,5
 FamilyName2,15,8
 ...
 ```
-- First line: Date in YYYY-MM-DD format
+- First line: Date in DD-MM-YY format (Eastern Time)
 - Following lines: family_name,kills,deaths
 
 **Image Format:**
 - Supported formats: PNG, JPG, JPEG, WEBP
 - Maximum size: 5MB
 - Screenshot should contain:
-  - War date at the top
+  - War date at the top in DD-MM-YY format
   - Family names in the leftmost column
   - Kills and deaths in the two rightmost columns
 - Requires `OPENAI_API_KEY` environment variable to be set
 - Images are automatically saved to the `uploads/` directory with Discord user ID and timestamp
+
+**Note:** All dates are in Eastern Time Zone (America/New_York) to match typical guild war schedules.
 
 #### `/warstats`
 **Description:** Get war statistics for all roster members  
@@ -309,7 +323,7 @@ FamilyName2,15,8
 **Description:** Get results of all wars from most recent to oldest  
 **Required Role:** Officer Role  
 **Output:** Displays for each war:
-- Date (YYYY-MM-DD format)
+- Date (DD-MM-YY format)
 - Result (W for Win, L for Lose)
 - Total kills for the guild
 - Total deaths for the guild
@@ -320,7 +334,7 @@ FamilyName2,15,8
 **Description:** Remove war data for a specific date  
 **Required Role:** Officer Role  
 **Parameters:**
-- `date` (required) - War date in YYYY-MM-DD format (e.g., 2025-01-15)
+- `date` (required) - War date in DD-MM-YY format (e.g., 15-01-25) in Eastern Time
 
 **Note:** This command will remove all war data for the specified date, including all individual member statistics. The operation cannot be undone.
 
