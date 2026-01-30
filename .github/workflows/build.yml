@@ -62,7 +62,7 @@ jobs:
       run: go tool cover -func=coverage.txt
 
     - name: Upload coverage artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: coverage-report
         path: coverage.txt
@@ -75,13 +75,13 @@ jobs:
         fail_ci_if_error: false
         
     - name: Upload sqlc generated files as artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: sqlc-files
         path: internal/db/sqlc/**
 
     - name: Upload compiled executable as artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: compiled-executable
         path: ./PanickedBot
