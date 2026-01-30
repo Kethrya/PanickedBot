@@ -161,7 +161,7 @@ func handleCheckAttendance(s *discordgo.Session, i *discordgo.InteractionCreate,
 	// Build response message
 	var message strings.Builder
 	message.WriteString(fmt.Sprintf("**Attendance Report for %s**\n", result.FamilyName))
-	message.WriteString(fmt.Sprintf("Member since: %s\n\n", result.CreatedAt.Format("02-01-06")))
+	message.WriteString(fmt.Sprintf("Member since: %s\n\n", formatDateYYMMDD(result.CreatedAt)))
 	message.WriteString(fmt.Sprintf("**Last %d weeks:**\n", weeksBack))
 	message.WriteString(fmt.Sprintf("• Total weeks: %d\n", result.TotalWeeks))
 	message.WriteString(fmt.Sprintf("• Attended: %d weeks\n", result.AttendedWeeks))
@@ -172,7 +172,7 @@ func handleCheckAttendance(s *discordgo.Session, i *discordgo.InteractionCreate,
 	} else {
 		message.WriteString("⚠️ **Missed weeks:**\n")
 		for _, week := range result.MissedWeeks {
-			message.WriteString(fmt.Sprintf("• Week of %s\n", week.StartDate.Format("02-01-06")))
+			message.WriteString(fmt.Sprintf("• Week of %s\n", formatDateYYMMDD(week.StartDate)))
 		}
 	}
 

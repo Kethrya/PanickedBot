@@ -27,7 +27,7 @@ func formatWarStatLine(stat db.WarStats) string {
 		deathsStr = fmt.Sprintf("%d", stat.TotalDeaths)
 
 		if stat.MostRecentWar != nil {
-			mostRecentStr = stat.MostRecentWar.Format("02-01-06")
+			mostRecentStr = formatDateYYMMDD(*stat.MostRecentWar)
 		}
 
 		// Calculate K/D ratio
@@ -265,7 +265,7 @@ func handleWarResults(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 
 	// Data rows
 	for _, result := range results {
-		dateStr := result.WarDate.Format("02-01-06")
+		dateStr := formatDateYYMMDD(result.WarDate)
 		
 		// Format result as W/L or empty
 		var resultStr string

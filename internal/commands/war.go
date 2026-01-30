@@ -227,15 +227,14 @@ func processImageWithOpenAI(imageData []byte, mimeType string) (warDate time.Tim
 	// Create the prompt for OpenAI
 	prompt := "Extract the war statistics from this screenshot and return them in CSV format.\n\n" +
 		"The screenshot contains war data with the following information:\n" +
-		"- The date of the war is at the top of the screenshot in DD-MM-YY format (e.g., 20-03-25 for March 20, 2025)\n" +
+		"- The date of the war is at the top of the screenshot in YY-MM-DD format (e.g., 25-03-20 for March 20, 2025)\n" +
 		"- The leftmost column contains family names\n" +
 		"- The last two columns (rightmost) contain kills and deaths\n" +
 		"- All other columns should be ignored\n\n" +
-		"IMPORTANT: The date in the screenshot is in DD-MM-YY format, but you MUST convert it to YY-MM-DD format.\n" +
-		"For example: if the screenshot shows 20-03-25 (March 20, 2025), you must return it as 25-03-20 or 25-3-20.\n\n" +
+		"IMPORTANT: The date in the screenshot is in YY-MM-DD format. You MUST return the date in the EXACT SAME YY-MM-DD format as shown in the screenshot. Do NOT convert it to any other format.\n\n" +
 		"IMPORTANT: If you encounter a family name that reads as 'hammiity', 'hammitty', 'hammity', or similar variations, the correct name is 'hammity' (all lowercase).\n\n" +
 		"Please return the data in this exact CSV format:\n" +
-		"First line: date in YY-MM-DD format (with single or double digits for month and day)\n" +
+		"First line: date in YY-MM-DD format (exactly as shown in the screenshot, with single or double digits for month and day)\n" +
 		"Following lines: family_name,kills,deaths\n\n" +
 		"Example output:\n" +
 		"25-3-20\n" +
@@ -502,7 +501,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 	}
 
 	successMsg := fmt.Sprintf("War data imported successfully!\nDate: %s\nResult: %s\nType: %s\nTier: %s\nEntries: %d", 
-		warDate.Format("02-01-06"), strings.Title(warResult), strings.Title(warType), tier, len(warLines))
+		formatDateYYMMDD(warDate), strings.Title(warResult), strings.Title(warType), tier, len(warLines))
 	if isImage {
 		discord.FollowUpText(s, i, successMsg)
 	} else {

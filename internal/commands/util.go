@@ -74,6 +74,15 @@ func parseFlexibleDate(dateStr string, loc *time.Location) (time.Time, error) {
 	return date, nil
 }
 
+// formatDateYYMMDD formats a time.Time in YY-MM-DD format (e.g., "28-01-26" for Jan 26, 2028)
+// This matches the input format expected by parseFlexibleDate
+func formatDateYYMMDD(t time.Time) string {
+	year := t.Year() - 2000
+	month := int(t.Month())
+	day := t.Day()
+	return fmt.Sprintf("%02d-%02d-%02d", year, month, day)
+}
+
 // validClasses is the list of valid Black Desert Online classes
 var validClasses = map[string]bool{
 	"Warrior":     true,

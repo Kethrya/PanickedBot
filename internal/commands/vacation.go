@@ -97,7 +97,7 @@ func handleVacation(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 	discord.RespondText(s, i, fmt.Sprintf("Successfully added vacation for %s (%s) from %s to %s%s.",
 		targetUser.Mention(),
 		member.FamilyName,
-		startDate.Format("02-01-06"),
-		endDate.Format("02-01-06"),
+		formatDateYYMMDD(startDate),
+		formatDateYYMMDD(endDate),
 		reasonText))
 }
