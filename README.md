@@ -1,3 +1,5 @@
+[![Build and Test](https://github.com/Kethrya/PanickedBot/actions/workflows/build.yml/badge.svg)](https://github.com/Kethrya/PanickedBot/actions/workflows/build.yml)
+
 # PanickedBot
 
 A Discord bot **explicitly designed for tracking Black Desert Online (BDO) guilds and wars**. It helps guilds manage wars, roster members, team assignments, and track war statistics.
