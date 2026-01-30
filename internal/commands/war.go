@@ -298,18 +298,32 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 		return
 	}
 
-	// Get the result parameter
+	// Parse options
 	options := i.ApplicationCommandData().Options
-	var warResult string
+	var warResult, warType, tier string
 	for _, opt := range options {
-		if opt.Name == "result" {
+		switch opt.Name {
+		case "result":
 			warResult = opt.StringValue()
-			break
+		case "war_type":
+			warType = opt.StringValue()
+		case "tier":
+			tier = opt.StringValue()
 		}
 	}
 
 	if warResult == "" {
 		discord.RespondEphemeral(s, i, "Please select a war result (Win or Lose).")
+		return
+	}
+
+	if warType == "" {
+		discord.RespondEphemeral(s, i, "Please select a war type (Node War or Siege).")
+		return
+	}
+
+	if tier == "" {
+		discord.RespondEphemeral(s, i, "Please select a war tier (Tier 1, Tier 2, or Uncapped).")
 		return
 	}
 
@@ -473,7 +487,7 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 	}
 
 	// Create the war entry
-	err = db.CreateWarFromCSV(dbx, i.GuildID, i.ChannelID, i.ID, i.Member.User.ID, warDate, warResult, warLines)
+	err = db.CreateWarFromCSV(dbx, i.GuildID, i.ChannelID, i.ID, i.Member.User.ID, warDate, warResult, warType, tier, warLines)
 	if err != nil {
 		log.Printf("addwar create error: %v", err)
 		if isImage {
@@ -484,7 +498,8 @@ func handleAddWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.
 		return
 	}
 
-	successMsg := fmt.Sprintf("War data imported successfully!\nDate: %s\nResult: %s\nEntries: %d", warDate.Format("02-01-06"), strings.Title(warResult), len(warLines))
+	successMsg := fmt.Sprintf("War data imported successfully!\nDate: %s\nResult: %s\nType: %s\nTier: %s\nEntries: %d", 
+		warDate.Format("02-01-06"), strings.Title(warResult), strings.Title(warType), tier, len(warLines))
 	if isImage {
 		discord.FollowUpText(s, i, successMsg)
 	} else {

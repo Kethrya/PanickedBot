@@ -230,6 +230,15 @@ Deregister all Discord commands and exit. This is useful for cleaning up command
 **Description:** Get all roster member information  
 **Required Role:** Officer Role
 
+#### `/link`
+**Description:** Link a Discord member to a family name  
+**Required Role:** Officer Role  
+**Parameters:**
+- `member` (required) - Discord member to link
+- `family_name` (required) - Family name in BDO to link to the member
+
+**Note:** This command will create a new roster entry if the Discord member doesn't exist in the roster, or update the family name if they already exist. This is useful for quickly associating Discord members with their BDO family names.
+
 #### `/merc`
 **Description:** Mark a member as mercenary or not  
 **Required Role:** Officer Role  
@@ -291,6 +300,8 @@ Deregister all Discord commands and exit. This is useful for cleaning up command
 **Parameters:**
 - `file` (required) - CSV or image file (<5MB for images, <10MB for CSV) with war data
 - `result` (required) - War result (Win or Lose)
+- `war_type` (required) - Type of war (Node War or Siege)
+- `tier` (required) - War tier (Tier 1, Tier 2, or Uncapped)
 
 **CSV Format:**
 ```
@@ -315,9 +326,16 @@ FamilyName2,15,8
 **Note:** All dates are in Eastern Time Zone (America/New_York) to match typical guild war schedules.
 
 #### `/warstats`
-**Description:** Get war statistics for all roster members  
+**Description:** Get war statistics for all roster members or a specific war date  
 **Required Role:** Officer Role  
-**Output:** Displays total wars, most recent war date, kills, deaths, and K/D ratio for each active member
+**Parameters:**
+- `date` (optional) - War date in DD-MM-YY format to show stats for that specific war
+
+**Output:** 
+- When no date is provided: Displays total wars, most recent war date, kills, deaths, and K/D ratio for each active member across all wars
+- When date is provided: Displays kills, deaths, and K/D ratio for each member who participated in that specific war, along with overall totals for the war
+
+**Note:** All dates are in Eastern Time Zone (America/New_York).
 
 #### `/warresults`
 **Description:** Get results of all wars from most recent to oldest  

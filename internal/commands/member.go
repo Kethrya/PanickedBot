@@ -77,27 +77,8 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 	displayName := getDiscordDisplayName(s, i.GuildID, i.Member.User.ID)
 
 	// Get or create member record
-	m, err := internal.GetMemberByDiscordUserID(dbx, i.GuildID, i.Member.User.ID)
-	if err == sql.ErrNoRows {
-		// Create new member - use Discord username as default family name
-		memberID, err := internal.CreateMember(dbx, i.GuildID, i.Member.User.ID, i.Member.User.Username)
-		if err != nil {
-			log.Printf("updateself create error: %v", err)
-			discord.RespondEphemeral(s, i, "Failed to create your member record. Please try again.")
-			return
-		}
-
-		// Get the newly created member
-		m, err = internal.GetMemberByDiscordUserID(dbx, i.GuildID, i.Member.User.ID)
-		if err != nil {
-			log.Printf("updateself lookup after create error: %v", err)
-			discord.RespondEphemeral(s, i, "Failed to update your information. Please try again.")
-			return
-		}
-
-		log.Printf("Created new member ID %d for user %s", memberID, i.Member.User.Username)
-	} else if err != nil {
-		log.Printf("updateself lookup error: %v", err)
+	m, err := getOrCreateMember(dbx, i.GuildID, i.Member.User.ID, i.Member.User.Username, "updateself")
+	if err != nil {
 		discord.RespondEphemeral(s, i, "Failed to update your information. Please try again.")
 		return
 	}
@@ -187,27 +168,8 @@ func handleGear(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB
 	displayName := getDiscordDisplayName(s, i.GuildID, userIDToUpdate)
 
 	// Get or create member record
-	m, err := internal.GetMemberByDiscordUserID(dbx, i.GuildID, userIDToUpdate)
-	if err == sql.ErrNoRows {
-		// Create new member - use Discord username as default family name
-		memberID, err := internal.CreateMember(dbx, i.GuildID, userIDToUpdate, usernameToUpdate)
-		if err != nil {
-			log.Printf("gear create error: %v", err)
-			discord.RespondEphemeral(s, i, "Failed to create member record. Please try again.")
-			return
-		}
-
-		// Get the newly created member
-		m, err = internal.GetMemberByDiscordUserID(dbx, i.GuildID, userIDToUpdate)
-		if err != nil {
-			log.Printf("gear lookup after create error: %v", err)
-			discord.RespondEphemeral(s, i, "Failed to update gear stats. Please try again.")
-			return
-		}
-
-		log.Printf("Created new member ID %d for user %s", memberID, usernameToUpdate)
-	} else if err != nil {
-		log.Printf("gear lookup error: %v", err)
+	m, err := getOrCreateMember(dbx, i.GuildID, userIDToUpdate, usernameToUpdate, "gear")
+	if err != nil {
 		discord.RespondEphemeral(s, i, "Failed to update gear stats. Please try again.")
 		return
 	}
@@ -307,27 +269,8 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 	displayName := getDiscordDisplayName(s, i.GuildID, targetUser.ID)
 
 	// Get or create member record
-	m, err := internal.GetMemberByDiscordUserID(dbx, i.GuildID, targetUser.ID)
-	if err == sql.ErrNoRows {
-		// Create new member - use Discord username as default family name
-		memberID, err := internal.CreateMember(dbx, i.GuildID, targetUser.ID, targetUser.Username)
-		if err != nil {
-			log.Printf("updatemember create error: %v", err)
-			discord.RespondEphemeral(s, i, "Failed to create member record. Please try again.")
-			return
-		}
-
-		// Get the newly created member
-		m, err = internal.GetMemberByDiscordUserID(dbx, i.GuildID, targetUser.ID)
-		if err != nil {
-			log.Printf("updatemember lookup after create error: %v", err)
-			discord.RespondEphemeral(s, i, "Failed to update member information. Please try again.")
-			return
-		}
-
-		log.Printf("Created new member ID %d for user %s", memberID, targetUser.Username)
-	} else if err != nil {
-		log.Printf("updatemember lookup error: %v", err)
+	m, err := getOrCreateMember(dbx, i.GuildID, targetUser.ID, targetUser.Username, "updatemember")
+	if err != nil {
 		discord.RespondEphemeral(s, i, "Failed to update member information. Please try again.")
 		return
 	}
