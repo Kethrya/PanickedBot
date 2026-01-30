@@ -1,12 +1,15 @@
 package commands
 
 import (
+	"database/sql"
+	"log"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 
 	"PanickedBot/internal"
+	"PanickedBot/internal/db"
 )
 
 // GuildConfig is a type alias for internal.GuildConfig for convenience
@@ -106,4 +109,34 @@ func hasGuildMemberPermission(i *discordgo.InteractionCreate, cfg *GuildConfig) 
 	}
 
 	return false
+}
+
+// getOrCreateMember retrieves a member by Discord user ID, creating a new one if it doesn't exist.
+// This is a helper to reduce code duplication across command handlers.
+// Returns the member and any error encountered.
+func getOrCreateMember(dbx *db.DB, guildID, userID, username, contextName string) (*internal.Member, error) {
+	m, err := internal.GetMemberByDiscordUserID(dbx, guildID, userID)
+	if err == sql.ErrNoRows {
+		// Create new member - use Discord username as default family name
+		memberID, err := internal.CreateMember(dbx, guildID, userID, username)
+		if err != nil {
+			log.Printf("%s create error: %v", contextName, err)
+			return nil, err
+		}
+
+		// Get the newly created member
+		m, err = internal.GetMemberByDiscordUserID(dbx, guildID, userID)
+		if err != nil {
+			log.Printf("%s lookup after create error: %v", contextName, err)
+			return nil, err
+		}
+
+		log.Printf("Created new member ID %d for user %s", memberID, username)
+		return m, nil
+	} else if err != nil {
+		log.Printf("%s lookup error: %v", contextName, err)
+		return nil, err
+	}
+
+	return m, nil
 }

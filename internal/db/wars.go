@@ -58,7 +58,7 @@ type WarLineData struct {
 }
 
 // CreateWarFromCSV creates a war entry and associated war lines from CSV data
-func CreateWarFromCSV(db *DB, guildID string, requestChannelID string, requestMessageID string, requestedByUserID string, warDate time.Time, warResult string, warLines []WarLineData) error {
+func CreateWarFromCSV(db *DB, guildID string, requestChannelID string, requestMessageID string, requestedByUserID string, warDate time.Time, warResult string, warType string, tier string, warLines []WarLineData) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -93,6 +93,18 @@ func CreateWarFromCSV(db *DB, guildID string, requestChannelID string, requestMe
 		resultField = sqlcdb.NullWarsResult{WarsResult: sqlcdb.WarsResult(warResult), Valid: true}
 	}
 
+	// Prepare the war_type field
+	var warTypeField sqlcdb.NullWarsWarType
+	if warType != "" {
+		warTypeField = sqlcdb.NullWarsWarType{WarsWarType: sqlcdb.WarsWarType(warType), Valid: true}
+	}
+
+	// Prepare the tier field
+	var tierField sqlcdb.NullWarsTier
+	if tier != "" {
+		tierField = sqlcdb.NullWarsTier{WarsTier: sqlcdb.WarsTier(tier), Valid: true}
+	}
+
 	// Create war entry
 	warDBResult, err := qtx.CreateWar(ctx, sqlcdb.CreateWarParams{
 		DiscordGuildID: guildID,
@@ -100,6 +112,8 @@ func CreateWarFromCSV(db *DB, guildID string, requestChannelID string, requestMe
 		WarDate:        warDate,
 		Label:          sql.NullString{String: fmt.Sprintf("CSV Import - %s", warDate.Format("02-01-06")), Valid: true},
 		Result:         resultField,
+		WarType:        warTypeField,
+		Tier:           tierField,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create war: %w", err)
@@ -224,4 +238,43 @@ func DeleteWarByDate(db *DB, guildID string, warDate time.Time) error {
 	}
 
 	return nil
+}
+
+// WarStatByDate represents war statistics for a member on a specific date
+type WarStatByDate struct {
+	FamilyName string
+	Kills      int
+	Deaths     int
+}
+
+// GetWarStatsByDate retrieves war statistics for a specific date
+func GetWarStatsByDate(db *DB, guildID string, warDate time.Time) ([]WarStatByDate, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	rows, err := db.Queries.GetWarStatsByDate(ctx, sqlcdb.GetWarStatsByDateParams{
+		DiscordGuildID: guildID,
+		WarDate:        warDate,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	stats := make([]WarStatByDate, 0, len(rows))
+	for _, row := range rows {
+		// Handle NullString for FamilyName
+		familyName := ""
+		if row.FamilyName.Valid {
+			familyName = row.FamilyName.String
+		}
+
+		stat := WarStatByDate{
+			FamilyName: familyName,
+			Kills:      int(row.Kills),
+			Deaths:     int(row.Deaths),
+		}
+		stats = append(stats, stat)
+	}
+
+	return stats, nil
 }
