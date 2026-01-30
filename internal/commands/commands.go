@@ -274,6 +274,12 @@ func GetCommands() []*discordgo.ApplicationCommand {
 				},
 				{
 					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "include_inactive",
+					Description: "Include inactive members in results (default: true)",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
 					Name:        "include_mercs",
 					Description: "Include mercenary members in results (default: false)",
 					Required:    false,

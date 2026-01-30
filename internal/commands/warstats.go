@@ -54,6 +54,7 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 
 	// Parse command options
 	var dateStr string
+	includeInactive := true // default to true
 	var includeMercs bool
 	var teamName string
 	
@@ -62,6 +63,8 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 		switch opt.Name {
 		case "date":
 			dateStr = opt.StringValue()
+		case "include_inactive":
+			includeInactive = opt.BoolValue()
 		case "include_mercs":
 			includeMercs = opt.BoolValue()
 		case "team":
@@ -77,7 +80,7 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 
 	// Otherwise, show stats for all wars (original behavior)
 	// Get war statistics
-	stats, err := db.GetWarStats(dbx, i.GuildID, includeMercs, teamName)
+	stats, err := db.GetWarStats(dbx, i.GuildID, includeInactive, includeMercs, teamName)
 	if err != nil {
 		log.Printf("warstats error: %v", err)
 		discord.RespondEphemeral(s, i, "Failed to retrieve war statistics. Please try again.")
