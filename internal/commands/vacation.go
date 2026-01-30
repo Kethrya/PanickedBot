@@ -53,13 +53,13 @@ func handleVacation(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 	// Parse dates in Eastern timezone
 	startDate, err := parseFlexibleDate(startDateStr, est)
 	if err != nil {
-		discord.RespondEphemeral(s, i, "Invalid start date format. Use DD-MM-YY (e.g., 25-12-24).")
+		discord.RespondEphemeral(s, i, "Invalid start date format. Use YY-MM-DD (e.g., 24-12-25 for Dec 25, 2024).")
 		return
 	}
 
 	endDate, err := parseFlexibleDate(endDateStr, est)
 	if err != nil {
-		discord.RespondEphemeral(s, i, "Invalid end date format. Use DD-MM-YY (e.g., 31-12-24).")
+		discord.RespondEphemeral(s, i, "Invalid end date format. Use YY-MM-DD (e.g., 24-12-31 for Dec 31, 2024).")
 		return
 	}
 

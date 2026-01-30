@@ -10,72 +10,72 @@ func TestParseFlexibleDate(t *testing.T) {
 	est := getEasternLocation()
 
 	tests := []struct {
-		name        string
-		input       string
-		expectError bool
-		expectedDay int
+		name          string
+		input         string
+		expectError   bool
+		expectedDay   int
 		expectedMonth int
-		expectedYear int
+		expectedYear  int
 	}{
 		{
-			name:          "Single digit day and month",
-			input:         "1-1-28",
+			name:          "Single digit day and month (28-1-1 = Jan 1, 2028)",
+			input:         "28-1-1",
 			expectError:   false,
 			expectedDay:   1,
 			expectedMonth: 1,
 			expectedYear:  2028,
 		},
 		{
-			name:          "Single digit month, double digit day",
-			input:         "26-1-28",
+			name:          "Single digit month, double digit day (28-1-26 = Jan 26, 2028)",
+			input:         "28-1-26",
 			expectError:   false,
 			expectedDay:   26,
 			expectedMonth: 1,
 			expectedYear:  2028,
 		},
 		{
-			name:          "Double digit month, single digit day",
-			input:         "5-12-28",
+			name:          "Double digit month, single digit day (28-12-5 = Dec 5, 2028)",
+			input:         "28-12-5",
 			expectError:   false,
 			expectedDay:   5,
 			expectedMonth: 12,
 			expectedYear:  2028,
 		},
 		{
-			name:          "All double digits",
-			input:         "26-01-28",
+			name:          "All double digits (28-01-26 = Jan 26, 2028)",
+			input:         "28-01-26",
 			expectError:   false,
 			expectedDay:   26,
 			expectedMonth: 1,
 			expectedYear:  2028,
 		},
 		{
-			name:          "End of month",
-			input:         "31-12-25",
+			name:          "End of month (25-12-31 = Dec 31, 2025)",
+			input:         "25-12-31",
 			expectError:   false,
 			expectedDay:   31,
 			expectedMonth: 12,
 			expectedYear:  2025,
 		},
 		{
-			name:          "Leap year date",
-			input:         "29-2-24",
+			name:          "Leap year date (24-2-29 = Feb 29, 2024)",
+			input:         "24-2-29",
 			expectError:   false,
 			expectedDay:   29,
 			expectedMonth: 2,
 			expectedYear:  2024,
 		},
 		{
-			name:          "Start of year",
-			input:         "1-1-26",
+			name:          "Start of year (26-1-1 = Jan 1, 2026)",
+			input:         "26-1-1",
 			expectError:   false,
 			expectedDay:   1,
 			expectedMonth: 1,
 			expectedYear:  2026,
 		},
 		{
-			name:          "With leading/trailing whitespace",
-			input:         "  15-6-27  ",
+			name:          "With leading/trailing whitespace (27-6-15 = Jun 15, 2027)",
+			input:         "  27-6-15  ",
 			expectError:   false,
 			expectedDay:   15,
 			expectedMonth: 6,
@@ -83,62 +83,62 @@ func TestParseFlexibleDate(t *testing.T) {
 		},
 		{
 			name:        "Invalid format - missing parts",
-			input:       "26-1",
+			input:       "28-1",
 			expectError: true,
 		},
 		{
 			name:        "Invalid format - too many parts",
-			input:       "26-1-28-2024",
+			input:       "28-1-26-extra",
 			expectError: true,
 		},
 		{
 			name:        "Invalid day - zero",
-			input:       "0-1-28",
+			input:       "28-1-0",
 			expectError: true,
 		},
 		{
 			name:        "Invalid day - too large",
-			input:       "32-1-28",
+			input:       "28-1-32",
 			expectError: true,
 		},
 		{
 			name:        "Invalid month - zero",
-			input:       "15-0-28",
+			input:       "28-0-15",
 			expectError: true,
 		},
 		{
 			name:        "Invalid month - too large",
-			input:       "15-13-28",
+			input:       "28-13-15",
 			expectError: true,
 		},
 		{
 			name:        "Invalid year - too large",
-			input:       "15-1-100",
+			input:       "100-1-15",
 			expectError: true,
 		},
 		{
 			name:        "Invalid date - Feb 30",
-			input:       "30-2-28",
+			input:       "28-2-30",
 			expectError: true,
 		},
 		{
 			name:        "Invalid date - Feb 29 non-leap year",
-			input:       "29-2-27",
+			input:       "27-2-29",
 			expectError: true,
 		},
 		{
-			name:        "Non-numeric day",
+			name:        "Non-numeric year",
 			input:       "ab-1-28",
 			expectError: true,
 		},
 		{
 			name:        "Non-numeric month",
-			input:       "15-ab-28",
+			input:       "28-ab-15",
 			expectError: true,
 		},
 		{
-			name:        "Non-numeric year",
-			input:       "15-1-ab",
+			name:        "Non-numeric day",
+			input:       "28-1-ab",
 			expectError: true,
 		},
 		{
@@ -148,7 +148,7 @@ func TestParseFlexibleDate(t *testing.T) {
 		},
 		{
 			name:        "Wrong separator",
-			input:       "15/1/28",
+			input:       "28/1/15",
 			expectError: true,
 		},
 	}
@@ -188,6 +188,7 @@ func TestParseFlexibleDate(t *testing.T) {
 		})
 	}
 }
+
 
 func TestNormalizeClassName(t *testing.T) {
 	tests := []struct {

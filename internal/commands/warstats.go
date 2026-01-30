@@ -144,7 +144,7 @@ func handleWarStatsByDate(s *discordgo.Session, i *discordgo.InteractionCreate, 
 	est := getEasternLocation()
 	warDate, err := parseFlexibleDate(dateStr, est)
 	if err != nil {
-		discord.RespondEphemeral(s, i, "Invalid date format. Please use DD-MM-YY format (e.g., 15-01-25).")
+		discord.RespondEphemeral(s, i, "Invalid date format. Please use YY-MM-DD format (e.g., 25-1-15 for Jan 15, 2025).")
 		return
 	}
 
@@ -311,7 +311,7 @@ func handleRemoveWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 	// Get the date parameter
 	options := i.ApplicationCommandData().Options
 	if len(options) == 0 {
-		discord.RespondEphemeral(s, i, "Please provide a date in DD-MM-YY format.")
+		discord.RespondEphemeral(s, i, "Please provide a date in YY-MM-DD format.")
 		return
 	}
 
@@ -321,7 +321,7 @@ func handleRemoveWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 	est := getEasternLocation()
 	warDate, err := parseFlexibleDate(dateStr, est)
 	if err != nil {
-		discord.RespondEphemeral(s, i, "Invalid date format. Please use DD-MM-YY format (e.g., 15-01-25).")
+		discord.RespondEphemeral(s, i, "Invalid date format. Please use YY-MM-DD format (e.g., 25-1-15 for Jan 15, 2025).")
 		return
 	}
 

@@ -48,7 +48,7 @@ func cleanCSVContent(content string) string {
 }
 
 // parseWarCSV parses a CSV file with war data
-// First line: date in DD-MM-YY format
+// First line: date in YY-MM-DD format
 // Remaining lines: family_name, kills, deaths
 func parseWarCSV(content io.Reader) (warDate time.Time, warLines []db.WarLineData, err error) {
 	reader := csv.NewReader(content)
@@ -69,7 +69,7 @@ func parseWarCSV(content io.Reader) (warDate time.Time, warLines []db.WarLineDat
 	est := getEasternLocation()
 	warDate, err = parseFlexibleDate(strings.TrimSpace(dateRecord[0]), est)
 	if err != nil {
-		return time.Time{}, nil, fmt.Errorf("invalid date format (expected DD-MM-YY): %w", err)
+		return time.Time{}, nil, fmt.Errorf("invalid date format (expected YY-MM-DD): %w", err)
 	}
 
 	// Read remaining lines (war data)
@@ -231,13 +231,14 @@ func processImageWithOpenAI(imageData []byte, mimeType string) (warDate time.Tim
 		"- The leftmost column contains family names\n" +
 		"- The last two columns (rightmost) contain kills and deaths\n" +
 		"- All other columns should be ignored\n\n" +
-		"IMPORTANT: The date in the screenshot is in DD-MM-YY format. You MUST return the date in the EXACT SAME DD-MM-YY format as shown in the screenshot. Do NOT convert it to any other format.\n\n" +
+		"IMPORTANT: The date in the screenshot is in DD-MM-YY format, but you MUST convert it to YY-MM-DD format.\n" +
+		"For example: if the screenshot shows 20-03-25 (March 20, 2025), you must return it as 25-03-20 or 25-3-20.\n\n" +
 		"IMPORTANT: If you encounter a family name that reads as 'hammiity', 'hammitty', 'hammity', or similar variations, the correct name is 'hammity' (all lowercase).\n\n" +
 		"Please return the data in this exact CSV format:\n" +
-		"First line: date in DD-MM-YY format (exactly as shown in the screenshot)\n" +
+		"First line: date in YY-MM-DD format (with single or double digits for month and day)\n" +
 		"Following lines: family_name,kills,deaths\n\n" +
 		"Example output:\n" +
-		"20-03-25\n" +
+		"25-3-20\n" +
 		"FamilyName1,10,5\n" +
 		"FamilyName2,15,8\n\n" +
 		"CRITICAL: Return ONLY the CSV data with NO markdown formatting, NO code blocks (```), NO explanatory text, and NO additional formatting. Just the raw CSV data."
