@@ -29,7 +29,6 @@ func getSpecChoices() []*discordgo.ApplicationCommandOptionChoice {
 // GetCommands returns all application commands
 func GetCommands() []*discordgo.ApplicationCommand {
 	return []*discordgo.ApplicationCommand{
-		{Name: "ping", Description: "health check"},
 		setupCommand(),
 		{
 			Name:        "addteam",
@@ -435,9 +434,6 @@ func CreateInteractionHandler(database *db.DB) func(s *discordgo.Session, i *dis
 		}
 
 		switch i.ApplicationCommandData().Name {
-
-		case "ping":
-			discord.RespondText(s, i, "pong")
 
 		case "addteam":
 			handleAddTeam(s, i, database, cfg)

@@ -165,12 +165,6 @@ Deregister all Discord commands and exit. This is useful for cleaning up command
 - `guild_member_role` (optional) - Role required for members to update their own information
 - `mercenary_role` (optional) - Role for mercenary members
 
-### General Commands
-
-#### `/ping`
-**Description:** Health check to verify bot is responsive  
-**Required Role:** None
-
 ### Member Management
 
 #### `/updateself`
@@ -330,12 +324,18 @@ FamilyName2,15,8
 **Required Role:** Officer Role  
 **Parameters:**
 - `date` (optional) - War date in DD-MM-YY format to show stats for that specific war
+- `include_inactive` (optional) - Include inactive members in results (default: true)
+- `include_mercs` (optional) - Include mercenary members in results (default: false)
+- `team` (optional) - Filter results to only members of this team
 
 **Output:** 
-- When no date is provided: Displays total wars, most recent war date, kills, deaths, and K/D ratio for each active member across all wars
+- When no date is provided: Displays total wars, most recent war date, kills, deaths, and K/D ratio for each member across all wars. Only shows members who have participated in at least one war.
 - When date is provided: Displays kills, deaths, and K/D ratio for each member who participated in that specific war, along with overall totals for the war
 
-**Note:** All dates are in Eastern Time Zone (America/New_York).
+**Notes:** 
+- All dates are in Eastern Time Zone (America/New_York)
+- Members with zero war participation are automatically excluded from results
+- All name comparisons are case-insensitive for family names and team names
 
 #### `/warresults`
 **Description:** Get results of all wars from most recent to oldest  
