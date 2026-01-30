@@ -99,6 +99,10 @@ func handleUpdateSelf(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 
 	err = internal.UpdateMember(dbx, m.ID, fields)
 	if err != nil {
+		if isDuplicateFamilyNameError(err) {
+			discord.RespondEphemeral(s, i, fmt.Sprintf("Family name '%s' is already in use by another member.", familyName))
+			return
+		}
 		log.Printf("updateself error: %v", err)
 		discord.RespondEphemeral(s, i, "Failed to update your information. Please try again.")
 		return
@@ -331,6 +335,10 @@ func handleUpdateMember(s *discordgo.Session, i *discordgo.InteractionCreate, db
 
 	err = internal.UpdateMember(dbx, m.ID, fields)
 	if err != nil {
+		if isDuplicateFamilyNameError(err) {
+			discord.RespondEphemeral(s, i, fmt.Sprintf("Family name '%s' is already in use by another member.", familyName))
+			return
+		}
 		log.Printf("updatemember error: %v", err)
 		discord.RespondEphemeral(s, i, "Failed to update member information. Please try again.")
 		return

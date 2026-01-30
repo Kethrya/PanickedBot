@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/go-sql-driver/mysql"
 
 	"PanickedBot/internal"
 	"PanickedBot/internal/db"
@@ -201,4 +202,24 @@ func getOrCreateMember(dbx *db.DB, guildID, userID, username, contextName string
 	}
 
 	return m, nil
+}
+
+// isDuplicateFamilyNameError checks if an error is a MySQL duplicate key error for family_name
+func isDuplicateFamilyNameError(err error) bool {
+	if err == nil {
+		return false
+	}
+	
+	// Check if it's a MySQL error
+	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
+		// Error 1062 is ER_DUP_ENTRY - duplicate key error
+		if mysqlErr.Number == 1062 {
+			// Check if the error message mentions family_name or the unique key
+			errMsg := mysqlErr.Message
+			return strings.Contains(errMsg, "family_name") || 
+			       strings.Contains(errMsg, "uq_roster_guild_family")
+		}
+	}
+	
+	return false
 }
