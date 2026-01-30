@@ -212,8 +212,9 @@ func handleRemoveWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 
 	dateStr := options[0].StringValue()
 
-	// Parse the date
-	warDate, err := time.Parse("02-01-06", dateStr)
+	// Parse the date in Eastern timezone
+	est := getEasternLocation()
+	warDate, err := time.ParseInLocation("02-01-06", dateStr, est)
 	if err != nil {
 		discord.RespondEphemeral(s, i, "Invalid date format. Please use DD-MM-YY format (e.g., 15-01-25).")
 		return

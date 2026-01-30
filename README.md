@@ -220,11 +220,11 @@ Deregister all Discord commands and exit. This is useful for cleaning up command
 **Required Role:** Officer Role  
 **Parameters:**
 - `member` (required) - Discord member going on vacation
-- `start_date` (required) - Vacation start date in DD-MM-YY format (e.g., 25-12-24)
-- `end_date` (required) - Vacation end date in DD-MM-YY format (e.g., 31-12-24)
+- `start_date` (required) - Vacation start date in DD-MM-YY format (e.g., 25-12-24) in Eastern Time
+- `end_date` (required) - Vacation end date in DD-MM-YY format (e.g., 31-12-24) in Eastern Time
 - `reason` (optional) - Optional reason for vacation
 
-**Note:** End date must be on or after start date. This helps track member availability during guild wars.
+**Note:** End date must be on or after start date. This helps track member availability during guild wars. All dates are in Eastern Time Zone (America/New_York) to match typical guild war schedules.
 
 #### `/roster`
 **Description:** Get all roster member information  
@@ -250,7 +250,7 @@ Deregister all Discord commands and exit. This is useful for cleaning up command
 - Number of weeks attended
 - List of missed weeks (if 5 or fewer)
 
-**Note:** Attendance tracking only considers weeks after the member was added to the roster. Inactive members are excluded from checks.
+**Note:** Attendance tracking only considers weeks after the member was added to the roster. Inactive members are excluded from checks. Week calculations are done in Eastern Time Zone (America/New_York).
 
 #### `/checkattendance`
 **Description:** Check attendance for a specific member  
@@ -267,7 +267,7 @@ Deregister all Discord commands and exit. This is useful for cleaning up command
 - Number of weeks missed
 - List of all missed weeks
 
-**Note:** Either `member` or `family_name` must be provided. Weeks covered by vacation are not counted as missed.
+**Note:** Either `member` or `family_name` must be provided. Weeks covered by vacation are not counted as missed. Week calculations are done in Eastern Time Zone (America/New_York).
 
 ### Team Management
 
@@ -299,7 +299,7 @@ FamilyName1,10,5
 FamilyName2,15,8
 ...
 ```
-- First line: Date in DD-MM-YY format
+- First line: Date in DD-MM-YY format (Eastern Time)
 - Following lines: family_name,kills,deaths
 
 **Image Format:**
@@ -311,6 +311,8 @@ FamilyName2,15,8
   - Kills and deaths in the two rightmost columns
 - Requires `OPENAI_API_KEY` environment variable to be set
 - Images are automatically saved to the `uploads/` directory with Discord user ID and timestamp
+
+**Note:** All dates are in Eastern Time Zone (America/New_York) to match typical guild war schedules.
 
 #### `/warstats`
 **Description:** Get war statistics for all roster members  
@@ -332,7 +334,7 @@ FamilyName2,15,8
 **Description:** Remove war data for a specific date  
 **Required Role:** Officer Role  
 **Parameters:**
-- `date` (required) - War date in DD-MM-YY format (e.g., 15-01-25)
+- `date` (required) - War date in DD-MM-YY format (e.g., 15-01-25) in Eastern Time
 
 **Note:** This command will remove all war data for the specified date, including all individual member statistics. The operation cannot be undone.
 

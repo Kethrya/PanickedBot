@@ -28,6 +28,18 @@ func (w WeekPeriod) String() string {
 	return fmt.Sprintf("%s to %s", w.StartDate.Format("02-01-06"), w.EndDate.Format("02-01-06"))
 }
 
+// getEasternLocation returns the Eastern timezone location (America/New_York)
+// This handles both EST (Eastern Standard Time) and EDT (Eastern Daylight Time) automatically
+func getEasternLocation() *time.Location {
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		// Fallback to UTC if Eastern timezone is not available
+		// This should not happen in production but provides a safe fallback
+		return time.UTC
+	}
+	return loc
+}
+
 // GetWeekStart returns the start of the week (Sunday) for a given date
 func GetWeekStart(date time.Time) time.Time {
 	// Get the day of week (0 = Sunday, 1 = Monday, etc.)
@@ -60,7 +72,9 @@ func GetWeekPeriod(date time.Time) WeekPeriod {
 // GetWeekPeriodsBack returns a list of week periods going back N weeks from today
 func GetWeekPeriodsBack(weeksBack int) []WeekPeriod {
 	weeks := make([]WeekPeriod, 0, weeksBack)
-	now := time.Now().UTC()
+	// Use Eastern time zone for consistency with guild war schedules
+	est := getEasternLocation()
+	now := time.Now().In(est)
 	
 	for i := 0; i < weeksBack; i++ {
 		// Calculate the date for this week
