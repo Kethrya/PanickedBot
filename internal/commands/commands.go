@@ -272,6 +272,18 @@ func GetCommands() []*discordgo.ApplicationCommand {
 					Description: "Optional war date in DD-MM-YY format to show stats for that specific war",
 					Required:    false,
 				},
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "include_mercs",
+					Description: "Include mercenary members in results (default: false)",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "team",
+					Description: "Filter results to only members of this team",
+					Required:    false,
+				},
 			},
 		},
 		{

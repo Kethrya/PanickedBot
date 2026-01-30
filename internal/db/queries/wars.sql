@@ -8,9 +8,13 @@ SELECT
 FROM roster_members rm
 LEFT JOIN war_lines wl ON rm.id = wl.roster_member_id
 LEFT JOIN wars w ON wl.war_id = w.id AND w.is_excluded = 0
-WHERE rm.discord_guild_id = ? 
-  AND rm.is_active = 1
+LEFT JOIN member_teams mt ON rm.id = mt.roster_member_id
+LEFT JOIN teams t ON mt.team_id = t.id AND t.discord_guild_id = rm.discord_guild_id
+WHERE rm.discord_guild_id = ?
+  AND (sqlc.narg('include_mercs') = 1 OR rm.is_mercenary = 0)
+  AND (sqlc.narg('team_name') IS NULL OR t.display_name = sqlc.narg('team_name'))
 GROUP BY rm.id, rm.family_name
+HAVING total_wars > 0
 ORDER BY rm.family_name;
 
 -- name: CreateWarJob :execresult

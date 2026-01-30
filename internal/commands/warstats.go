@@ -52,11 +52,21 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 		return
 	}
 
-	// Check if a date parameter was provided
+	// Parse command options
 	var dateStr string
+	var includeMercs bool
+	var teamName string
+	
 	options := i.ApplicationCommandData().Options
-	if len(options) > 0 {
-		dateStr = options[0].StringValue()
+	for _, opt := range options {
+		switch opt.Name {
+		case "date":
+			dateStr = opt.StringValue()
+		case "include_mercs":
+			includeMercs = opt.BoolValue()
+		case "team":
+			teamName = opt.StringValue()
+		}
 	}
 
 	// If date is provided, show stats for that specific war
@@ -67,7 +77,7 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 
 	// Otherwise, show stats for all wars (original behavior)
 	// Get war statistics
-	stats, err := db.GetWarStats(dbx, i.GuildID)
+	stats, err := db.GetWarStats(dbx, i.GuildID, includeMercs, teamName)
 	if err != nil {
 		log.Printf("warstats error: %v", err)
 		discord.RespondEphemeral(s, i, "Failed to retrieve war statistics. Please try again.")
@@ -75,7 +85,7 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 	}
 
 	if len(stats) == 0 {
-		discord.RespondEphemeral(s, i, "No active roster members found.")
+		discord.RespondEphemeral(s, i, "No roster members found with war participation.")
 		return
 	}
 

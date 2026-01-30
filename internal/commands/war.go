@@ -232,6 +232,7 @@ func processImageWithOpenAI(imageData []byte, mimeType string) (warDate time.Tim
 		"- The last two columns (rightmost) contain kills and deaths\n" +
 		"- All other columns should be ignored\n\n" +
 		"IMPORTANT: The date in the screenshot is in DD-MM-YY format. You MUST return the date in the EXACT SAME DD-MM-YY format as shown in the screenshot. Do NOT convert it to any other format.\n\n" +
+		"IMPORTANT: If you encounter a family name that reads as 'hammiity', 'hammitty', 'hammity', or similar variations, the correct name is 'hammity' (all lowercase).\n\n" +
 		"Please return the data in this exact CSV format:\n" +
 		"First line: date in DD-MM-YY format (exactly as shown in the screenshot)\n" +
 		"Following lines: family_name,kills,deaths\n\n" +
