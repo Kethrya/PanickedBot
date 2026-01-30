@@ -11,7 +11,7 @@ SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
        class, spec, ap, aap, dp, evasion, dr, drr, 
        accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_mercenary, is_active, created_at
 FROM roster_members 
-WHERE discord_guild_id = ? AND family_name = ? AND is_active = 1
+WHERE discord_guild_id = ? AND LOWER(family_name) = LOWER(sqlc.arg(family_name)) AND is_active = 1
 LIMIT 1;
 
 -- name: GetMemberByDiscordUserIDIncludingInactive :one
@@ -27,7 +27,7 @@ SELECT id, discord_guild_id, discord_user_id, family_name, display_name,
        class, spec, ap, aap, dp, evasion, dr, drr, 
        accuracy, hp, total_ap, total_aap, meets_cap, is_exception, is_mercenary, is_active, created_at
 FROM roster_members 
-WHERE discord_guild_id = ? AND family_name = ?
+WHERE discord_guild_id = ? AND LOWER(family_name) = LOWER(sqlc.arg(family_name))
 LIMIT 1;
 
 -- name: GetMemberByID :one

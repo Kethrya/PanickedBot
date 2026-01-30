@@ -3,14 +3,23 @@ SELECT
     rm.family_name,
     CAST(COUNT(DISTINCT CASE WHEN w.id IS NOT NULL THEN w.id END) AS UNSIGNED) as total_wars,
     MAX(CASE WHEN w.id IS NOT NULL THEN w.war_date END) as most_recent_war,
-    CAST(COALESCE(SUM(CASE WHEN w.id IS NOT NULL THEN wl.kills ELSE 0 END), 0) AS SIGNED) as total_kills,
-    CAST(COALESCE(SUM(CASE WHEN w.id IS NOT NULL THEN wl.deaths ELSE 0 END), 0) AS SIGNED) as total_deaths
+    CAST(COALESCE(SUM(DISTINCT CASE WHEN w.id IS NOT NULL THEN wl.kills ELSE 0 END), 0) AS SIGNED) as total_kills,
+    CAST(COALESCE(SUM(DISTINCT CASE WHEN w.id IS NOT NULL THEN wl.deaths ELSE 0 END), 0) AS SIGNED) as total_deaths
 FROM roster_members rm
 LEFT JOIN war_lines wl ON rm.id = wl.roster_member_id
 LEFT JOIN wars w ON wl.war_id = w.id AND w.is_excluded = 0
-WHERE rm.discord_guild_id = ? 
-  AND rm.is_active = 1
+WHERE rm.discord_guild_id = ?
+  AND (sqlc.narg('include_mercs') = 1 OR rm.is_mercenary = 0)
+  AND (sqlc.narg('include_inactive') = 1 OR rm.is_active = 1)
+  AND (sqlc.narg('team_name') IS NULL OR EXISTS (
+    SELECT 1 FROM member_teams mt
+    JOIN teams t ON mt.team_id = t.id
+    WHERE mt.roster_member_id = rm.id
+      AND t.discord_guild_id = rm.discord_guild_id
+      AND LOWER(t.display_name) = LOWER(sqlc.narg('team_name'))
+  ))
 GROUP BY rm.id, rm.family_name
+HAVING total_wars > 0
 ORDER BY rm.family_name;
 
 -- name: CreateWarJob :execresult
@@ -24,7 +33,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetRosterMemberByFamilyName :one
 SELECT id FROM roster_members
-WHERE discord_guild_id = ? AND LOWER(family_name) = LOWER(?)
+WHERE discord_guild_id = ? AND LOWER(family_name) = LOWER(sqlc.arg(family_name))
 LIMIT 1;
 
 -- name: CreateRosterMember :execresult

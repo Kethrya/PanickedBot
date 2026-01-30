@@ -75,19 +75,16 @@ func TestGetCommands(t *testing.T) {
 		return
 	}
 
-	// Check that ping command exists
-	foundPing := false
+	// Check that setup command exists
+	foundSetup := false
 	for _, cmd := range commands {
-		if cmd.Name == "ping" {
-			foundPing = true
-			if cmd.Description != "health check" {
-				t.Errorf("expected ping description 'health check', got %q", cmd.Description)
-			}
+		if cmd.Name == "setup" {
+			foundSetup = true
 		}
 	}
 
-	if !foundPing {
-		t.Error("expected to find 'ping' command")
+	if !foundSetup {
+		t.Error("expected to find 'setup' command")
 	}
 
 	// Verify command names are unique

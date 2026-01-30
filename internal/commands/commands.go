@@ -29,7 +29,6 @@ func getSpecChoices() []*discordgo.ApplicationCommandOptionChoice {
 // GetCommands returns all application commands
 func GetCommands() []*discordgo.ApplicationCommand {
 	return []*discordgo.ApplicationCommand{
-		{Name: "ping", Description: "health check"},
 		setupCommand(),
 		{
 			Name:        "addteam",
@@ -272,6 +271,24 @@ func GetCommands() []*discordgo.ApplicationCommand {
 					Description: "Optional war date in DD-MM-YY format to show stats for that specific war",
 					Required:    false,
 				},
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "include_inactive",
+					Description: "Include inactive members in results (default: true)",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionBoolean,
+					Name:        "include_mercs",
+					Description: "Include mercenary members in results (default: false)",
+					Required:    false,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "team",
+					Description: "Filter results to only members of this team",
+					Required:    false,
+				},
 			},
 		},
 		{
@@ -417,9 +434,6 @@ func CreateInteractionHandler(database *db.DB) func(s *discordgo.Session, i *dis
 		}
 
 		switch i.ApplicationCommandData().Name {
-
-		case "ping":
-			discord.RespondText(s, i, "pong")
 
 		case "addteam":
 			handleAddTeam(s, i, database, cfg)

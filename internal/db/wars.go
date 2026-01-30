@@ -18,12 +18,36 @@ type WarStats struct {
 	TotalDeaths   int
 }
 
-// GetWarStats retrieves war statistics for all active members
-func GetWarStats(db *DB, guildID string) ([]WarStats, error) {
+// GetWarStats retrieves war statistics for members
+// includeInactive: if true, includes inactive members in results (default true)
+// includeMercs: if true, includes mercenary members in results (default false)
+// teamName: if not empty, filters results to only members of that team
+func GetWarStats(db *DB, guildID string, includeInactive bool, includeMercs bool, teamName string) ([]WarStats, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	rows, err := db.Queries.GetWarStats(ctx, guildID)
+	// Prepare parameters
+	var includeInactiveVal interface{} = 0
+	if includeInactive {
+		includeInactiveVal = 1
+	}
+
+	var includeMercsVal interface{} = 0
+	if includeMercs {
+		includeMercsVal = 1
+	}
+
+	var teamNameVal sql.NullString
+	if teamName != "" {
+		teamNameVal = sql.NullString{String: teamName, Valid: true}
+	}
+
+	rows, err := db.Queries.GetWarStats(ctx, sqlcdb.GetWarStatsParams{
+		DiscordGuildID:  guildID,
+		IncludeInactive: includeInactiveVal,
+		IncludeMercs:    includeMercsVal,
+		TeamName:        teamNameVal,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +153,7 @@ func CreateWarFromCSV(db *DB, guildID string, requestChannelID string, requestMe
 		// Try to match the family name to a roster member (case insensitive)
 		rosterMemberID, err := qtx.GetRosterMemberByFamilyName(ctx, sqlcdb.GetRosterMemberByFamilyNameParams{
 			DiscordGuildID: guildID,
-			LOWER:          line.FamilyName,
+			FamilyName:     line.FamilyName,
 		})
 
 		var memberID sql.NullInt64
