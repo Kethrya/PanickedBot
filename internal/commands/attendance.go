@@ -38,6 +38,13 @@ func handleAttendance(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 		return
 	}
 
+	// Defer response since checking all members can take time
+	err := discord.DeferResponse(s, i)
+	if err != nil {
+		log.Printf("attendance defer error: %v", err)
+		return
+	}
+
 	// Create attendance checker
 	checker := internal.NewAttendanceChecker(dbx)
 
@@ -45,7 +52,7 @@ func handleAttendance(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 	results, err := checker.CheckAllMembersAttendance(i.GuildID, int(weeksBack))
 	if err != nil {
 		log.Printf("attendance error: %v", err)
-		discord.RespondEphemeral(s, i, "Failed to check attendance. Please try again.")
+		discord.FollowUpEphemeral(s, i, "Failed to check attendance. Please try again.")
 		return
 	}
 
@@ -85,8 +92,8 @@ func handleAttendance(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 		}
 	}
 
-	// Send response
-	discord.RespondText(s, i, message.String())
+	// Send follow-up response
+	discord.FollowUpText(s, i, message.String())
 }
 
 func handleCheckAttendance(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, cfg *GuildConfig) {
@@ -127,23 +134,30 @@ func handleCheckAttendance(s *discordgo.Session, i *discordgo.InteractionCreate,
 		return
 	}
 
-	// Get member record
-	var member *internal.Member
-	var err error
-
-	if targetUser != nil {
-		member, err = internal.GetMemberByDiscordUserID(dbx, i.GuildID, targetUser.ID)
-	} else {
-		member, err = internal.GetMemberByFamilyName(dbx, i.GuildID, familyName)
+	// Defer response for consistency and to handle potential long operations
+	err := discord.DeferResponse(s, i)
+	if err != nil {
+		log.Printf("checkattendance defer error: %v", err)
+		return
 	}
 
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			discord.RespondEphemeral(s, i, "Member not found.")
+	// Get member record
+	var member *internal.Member
+	var memberErr error
+
+	if targetUser != nil {
+		member, memberErr = internal.GetMemberByDiscordUserID(dbx, i.GuildID, targetUser.ID)
+	} else {
+		member, memberErr = internal.GetMemberByFamilyName(dbx, i.GuildID, familyName)
+	}
+
+	if memberErr != nil {
+		if errors.Is(memberErr, sql.ErrNoRows) {
+			discord.FollowUpEphemeral(s, i, "Member not found.")
 			return
 		}
-		log.Printf("checkattendance lookup error: %v", err)
-		discord.RespondEphemeral(s, i, "Failed to retrieve member information. Please try again.")
+		log.Printf("checkattendance lookup error: %v", memberErr)
+		discord.FollowUpEphemeral(s, i, "Failed to retrieve member information. Please try again.")
 		return
 	}
 
@@ -154,14 +168,14 @@ func handleCheckAttendance(s *discordgo.Session, i *discordgo.InteractionCreate,
 	result, err := checker.CheckMemberAttendance(i.GuildID, member.ID, int(weeksBack))
 	if err != nil {
 		log.Printf("checkattendance error: %v", err)
-		discord.RespondEphemeral(s, i, "Failed to check attendance. Please try again.")
+		discord.FollowUpEphemeral(s, i, "Failed to check attendance. Please try again.")
 		return
 	}
 
 	// Build response message
 	var message strings.Builder
 	message.WriteString(fmt.Sprintf("**Attendance Report for %s**\n", result.FamilyName))
-	message.WriteString(fmt.Sprintf("Member since: %s\n\n", result.CreatedAt.Format("02-01-06")))
+	message.WriteString(fmt.Sprintf("Member since: %s\n\n", formatDateYYMMDD(result.CreatedAt)))
 	message.WriteString(fmt.Sprintf("**Last %d weeks:**\n", weeksBack))
 	message.WriteString(fmt.Sprintf("• Total weeks: %d\n", result.TotalWeeks))
 	message.WriteString(fmt.Sprintf("• Attended: %d weeks\n", result.AttendedWeeks))
@@ -172,10 +186,10 @@ func handleCheckAttendance(s *discordgo.Session, i *discordgo.InteractionCreate,
 	} else {
 		message.WriteString("⚠️ **Missed weeks:**\n")
 		for _, week := range result.MissedWeeks {
-			message.WriteString(fmt.Sprintf("• Week of %s\n", week.StartDate.Format("02-01-06")))
+			message.WriteString(fmt.Sprintf("• Week of %s\n", formatDateYYMMDD(week.StartDate)))
 		}
 	}
 
-	// Send response
-	discord.RespondText(s, i, message.String())
+	// Send follow-up response
+	discord.FollowUpText(s, i, message.String())
 }

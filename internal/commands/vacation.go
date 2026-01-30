@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 
@@ -52,15 +51,15 @@ func handleVacation(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 	est := getEasternLocation()
 
 	// Parse dates in Eastern timezone
-	startDate, err := time.ParseInLocation("02-01-06", startDateStr, est)
+	startDate, err := parseFlexibleDate(startDateStr, est)
 	if err != nil {
-		discord.RespondEphemeral(s, i, "Invalid start date format. Use DD-MM-YY (e.g., 25-12-24).")
+		discord.RespondEphemeral(s, i, "Invalid start date format. Use YY-MM-DD (e.g., 24-12-25 for Dec 25, 2024).")
 		return
 	}
 
-	endDate, err := time.ParseInLocation("02-01-06", endDateStr, est)
+	endDate, err := parseFlexibleDate(endDateStr, est)
 	if err != nil {
-		discord.RespondEphemeral(s, i, "Invalid end date format. Use DD-MM-YY (e.g., 31-12-24).")
+		discord.RespondEphemeral(s, i, "Invalid end date format. Use YY-MM-DD (e.g., 24-12-31 for Dec 31, 2024).")
 		return
 	}
 
@@ -98,7 +97,7 @@ func handleVacation(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 	discord.RespondText(s, i, fmt.Sprintf("Successfully added vacation for %s (%s) from %s to %s%s.",
 		targetUser.Mention(),
 		member.FamilyName,
-		startDate.Format("02-01-06"),
-		endDate.Format("02-01-06"),
+		formatDateYYMMDD(startDate),
+		formatDateYYMMDD(endDate),
 		reasonText))
 }

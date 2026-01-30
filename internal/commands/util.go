@@ -2,11 +2,14 @@ package commands
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/go-sql-driver/mysql"
 
 	"PanickedBot/internal"
 	"PanickedBot/internal/db"
@@ -19,6 +22,66 @@ type GuildConfig = internal.GuildConfig
 // This is a convenience wrapper around the internal.GetEasternLocation function
 func getEasternLocation() *time.Location {
 	return internal.GetEasternLocation()
+}
+
+// parseFlexibleDate parses a date string in YY-MM-DD format where month and day
+// can be either single or double digits (e.g., "28-1-26", "28-01-26", "28-1-1", "28-01-01")
+// Returns the parsed time in the specified timezone location
+func parseFlexibleDate(dateStr string, loc *time.Location) (time.Time, error) {
+	// Split the date string by dashes
+	parts := strings.Split(strings.TrimSpace(dateStr), "-")
+	if len(parts) != 3 {
+		return time.Time{}, fmt.Errorf("invalid date format: expected YY-MM-DD (e.g., 28-1-26 or 28-01-26)")
+	}
+
+	// Parse year, month, and day (in YY-MM-DD order)
+	year, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid year value: %s", parts[0])
+	}
+
+	month, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid month value: %s", parts[1])
+	}
+
+	day, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid day value: %s", parts[2])
+	}
+
+	// Validate ranges
+	if year < 0 || year > 99 {
+		return time.Time{}, fmt.Errorf("year must be between 0 and 99, got %d", year)
+	}
+	if month < 1 || month > 12 {
+		return time.Time{}, fmt.Errorf("month must be between 1 and 12, got %d", month)
+	}
+	if day < 1 || day > 31 {
+		return time.Time{}, fmt.Errorf("day must be between 1 and 31, got %d", day)
+	}
+
+	// Convert 2-digit year to 4-digit year (assuming 2000s)
+	fullYear := 2000 + year
+
+	// Create the date in the specified location
+	date := time.Date(fullYear, time.Month(month), day, 0, 0, 0, 0, loc)
+
+	// Validate that the date is valid (e.g., not Feb 30)
+	if date.Day() != day || int(date.Month()) != month {
+		return time.Time{}, fmt.Errorf("invalid date: %d-%d-%d does not exist", year, month, day)
+	}
+
+	return date, nil
+}
+
+// formatDateYYMMDD formats a time.Time in YY-MM-DD format (e.g., "28-01-26" for Jan 26, 2028)
+// This matches the input format expected by parseFlexibleDate
+func formatDateYYMMDD(t time.Time) string {
+	year := t.Year() - 2000
+	month := int(t.Month())
+	day := t.Day()
+	return fmt.Sprintf("%02d-%02d-%02d", year, month, day)
 }
 
 // validClasses is the list of valid Black Desert Online classes
@@ -139,4 +202,24 @@ func getOrCreateMember(dbx *db.DB, guildID, userID, username, contextName string
 	}
 
 	return m, nil
+}
+
+// isDuplicateFamilyNameError checks if an error is a MySQL duplicate key error for family_name
+func isDuplicateFamilyNameError(err error) bool {
+	if err == nil {
+		return false
+	}
+	
+	// Check if it's a MySQL error
+	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
+		// Error 1062 is ER_DUP_ENTRY - duplicate key error
+		if mysqlErr.Number == 1062 {
+			// Check if the error message mentions family_name or the unique key
+			errMsg := mysqlErr.Message
+			return strings.Contains(errMsg, "family_name") || 
+			       strings.Contains(errMsg, "uq_roster_guild_family")
+		}
+	}
+	
+	return false
 }

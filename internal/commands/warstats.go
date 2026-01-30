@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 
@@ -28,7 +27,7 @@ func formatWarStatLine(stat db.WarStats) string {
 		deathsStr = fmt.Sprintf("%d", stat.TotalDeaths)
 
 		if stat.MostRecentWar != nil {
-			mostRecentStr = stat.MostRecentWar.Format("02-01-06")
+			mostRecentStr = formatDateYYMMDD(*stat.MostRecentWar)
 		}
 
 		// Calculate K/D ratio
@@ -143,9 +142,9 @@ func handleWarStats(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *d
 func handleWarStatsByDate(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB, dateStr string) {
 	// Parse the date in Eastern timezone
 	est := getEasternLocation()
-	warDate, err := time.ParseInLocation("02-01-06", dateStr, est)
+	warDate, err := parseFlexibleDate(dateStr, est)
 	if err != nil {
-		discord.RespondEphemeral(s, i, "Invalid date format. Please use DD-MM-YY format (e.g., 15-01-25).")
+		discord.RespondEphemeral(s, i, "Invalid date format. Please use YY-MM-DD format (e.g., 25-1-15 for Jan 15, 2025).")
 		return
 	}
 
@@ -266,7 +265,7 @@ func handleWarResults(s *discordgo.Session, i *discordgo.InteractionCreate, dbx 
 
 	// Data rows
 	for _, result := range results {
-		dateStr := result.WarDate.Format("02-01-06")
+		dateStr := formatDateYYMMDD(result.WarDate)
 		
 		// Format result as W/L or empty
 		var resultStr string
@@ -312,7 +311,7 @@ func handleRemoveWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 	// Get the date parameter
 	options := i.ApplicationCommandData().Options
 	if len(options) == 0 {
-		discord.RespondEphemeral(s, i, "Please provide a date in DD-MM-YY format.")
+		discord.RespondEphemeral(s, i, "Please provide a date in YY-MM-DD format.")
 		return
 	}
 
@@ -320,9 +319,9 @@ func handleRemoveWar(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *
 
 	// Parse the date in Eastern timezone
 	est := getEasternLocation()
-	warDate, err := time.ParseInLocation("02-01-06", dateStr, est)
+	warDate, err := parseFlexibleDate(dateStr, est)
 	if err != nil {
-		discord.RespondEphemeral(s, i, "Invalid date format. Please use DD-MM-YY format (e.g., 15-01-25).")
+		discord.RespondEphemeral(s, i, "Invalid date format. Please use YY-MM-DD format (e.g., 25-1-15 for Jan 15, 2025).")
 		return
 	}
 

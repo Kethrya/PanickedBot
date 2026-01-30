@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -13,43 +14,43 @@ func TestCleanCSVContent(t *testing.T) {
 	}{
 		{
 			name: "CSV with markdown code blocks",
-			input: "```csv\n29-01-26\nFamilyName1,10,5\nFamilyName2,15,8\n```",
-			expected: `29-01-26
+			input: "```csv\n26-01-29\nFamilyName1,10,5\nFamilyName2,15,8\n```",
+			expected: `26-01-29
 FamilyName1,10,5
 FamilyName2,15,8`,
 		},
 		{
 			name: "CSV with triple backticks only",
-			input: "```\n29-01-26\nFamilyName1,10,5\nFamilyName2,15,8\n```",
-			expected: `29-01-26
+			input: "```\n26-01-29\nFamilyName1,10,5\nFamilyName2,15,8\n```",
+			expected: `26-01-29
 FamilyName1,10,5
 FamilyName2,15,8`,
 		},
 		{
 			name: "CSV with blank lines",
-			input: `29-01-26
+			input: `26-01-29
 
 FamilyName1,10,5
 
 FamilyName2,15,8
 `,
-			expected: `29-01-26
+			expected: `26-01-29
 FamilyName1,10,5
 FamilyName2,15,8`,
 		},
 		{
 			name: "CSV with markdown and blank lines",
-			input: "```csv\n\n29-01-26\n\nFamilyName1,10,5\nFamilyName2,15,8\n\n```",
-			expected: `29-01-26
+			input: "```csv\n\n26-01-29\n\nFamilyName1,10,5\nFamilyName2,15,8\n\n```",
+			expected: `26-01-29
 FamilyName1,10,5
 FamilyName2,15,8`,
 		},
 		{
 			name: "Clean CSV without any formatting",
-			input: `29-01-26
+			input: `26-01-29
 FamilyName1,10,5
 FamilyName2,15,8`,
-			expected: `29-01-26
+			expected: `26-01-29
 FamilyName1,10,5
 FamilyName2,15,8`,
 		},
@@ -70,10 +71,10 @@ FamilyName2,15,8`,
 		},
 		{
 			name: "CSV with leading/trailing whitespace",
-			input: `  29-01-26  
+			input: `  26-01-29  
   FamilyName1,10,5  
   FamilyName2,15,8  `,
-			expected: `29-01-26
+			expected: `26-01-29
 FamilyName1,10,5
 FamilyName2,15,8`,
 		},
@@ -98,21 +99,48 @@ func TestParseWarCSV(t *testing.T) {
 		expectedLines int
 	}{
 		{
-			name: "Valid CSV",
-			input: `29-01-26
+			name: "Valid CSV with double-digit date (26-01-29 = Jan 29, 2026)",
+			input: `26-01-29
 FamilyName1,10,5
 FamilyName2,15,8`,
 			expectError:   false,
-			expectedDate:  "29-01-26",
+			expectedDate:  "26-01-29",
 			expectedLines: 2,
 		},
 		{
-			name: "Valid CSV with cleaned content",
-			input: `29-01-26
+			name: "Valid CSV with single-digit month (28-1-26 = Jan 26, 2028)",
+			input: `28-1-26
 FamilyName1,10,5
 FamilyName2,15,8`,
 			expectError:   false,
-			expectedDate:  "29-01-26",
+			expectedDate:  "28-01-26",
+			expectedLines: 2,
+		},
+		{
+			name: "Valid CSV with single-digit day (28-12-5 = Dec 5, 2028)",
+			input: `28-12-5
+FamilyName1,10,5
+FamilyName2,15,8`,
+			expectError:   false,
+			expectedDate:  "28-12-05",
+			expectedLines: 2,
+		},
+		{
+			name: "Valid CSV with single-digit day and month (28-1-1 = Jan 1, 2028)",
+			input: `28-1-1
+FamilyName1,10,5
+FamilyName2,15,8`,
+			expectError:   false,
+			expectedDate:  "28-01-01",
+			expectedLines: 2,
+		},
+		{
+			name: "Valid CSV with cleaned content (26-01-29 = Jan 29, 2026)",
+			input: `26-01-29
+FamilyName1,10,5
+FamilyName2,15,8`,
+			expectError:   false,
+			expectedDate:  "26-01-29",
 			expectedLines: 2,
 		},
 		{
@@ -127,7 +155,7 @@ FamilyName2,15,8`,
 		},
 		{
 			name: "CSV with no war data",
-			input: `29-01-26
+			input: `26-01-29
 `,
 			expectError: true,
 		},
@@ -149,8 +177,10 @@ FamilyName2,15,8`,
 				return
 			}
 
-			if warDate.Format("02-01-06") != tt.expectedDate {
-				t.Errorf("parseWarCSV() date = %v, want %v", warDate.Format("02-01-06"), tt.expectedDate)
+			// Format date as YY-MM-DD to match expected format
+			actualDate := fmt.Sprintf("%02d-%02d-%02d", warDate.Year()-2000, warDate.Month(), warDate.Day())
+			if actualDate != tt.expectedDate {
+				t.Errorf("parseWarCSV() date = %v, want %v", actualDate, tt.expectedDate)
 			}
 
 			if len(warLines) != tt.expectedLines {

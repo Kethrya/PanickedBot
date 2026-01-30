@@ -50,6 +50,10 @@ func handleLink(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB
 		// Member doesn't exist, create new one with the provided family name
 		memberID, err := internal.CreateMember(dbx, i.GuildID, targetUser.ID, familyName)
 		if err != nil {
+			if isDuplicateFamilyNameError(err) {
+				discord.RespondEphemeral(s, i, fmt.Sprintf("Family name '%s' is already in use by another member.", familyName))
+				return
+			}
 			log.Printf("link create error: %v", err)
 			discord.RespondEphemeral(s, i, "Failed to link member. Please try again.")
 			return
@@ -81,6 +85,10 @@ func handleLink(s *discordgo.Session, i *discordgo.InteractionCreate, dbx *db.DB
 
 	err = internal.UpdateMember(dbx, m.ID, fields)
 	if err != nil {
+		if isDuplicateFamilyNameError(err) {
+			discord.RespondEphemeral(s, i, fmt.Sprintf("Family name '%s' is already in use by another member.", familyName))
+			return
+		}
 		log.Printf("link update error: %v", err)
 		discord.RespondEphemeral(s, i, "Failed to link member. Please try again.")
 		return

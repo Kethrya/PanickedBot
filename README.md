@@ -216,8 +216,8 @@ Deregister all Discord commands and exit. This is useful for cleaning up command
 **Required Role:** Officer Role  
 **Parameters:**
 - `member` (required) - Discord member going on vacation
-- `start_date` (required) - Vacation start date in DD-MM-YY format (e.g., 25-12-24) in Eastern Time
-- `end_date` (required) - Vacation end date in DD-MM-YY format (e.g., 31-12-24) in Eastern Time
+- `start_date` (required) - Vacation start date in YY-MM-DD format (e.g., 24-12-25 for Dec 25, 2024) in Eastern Time
+- `end_date` (required) - Vacation end date in YY-MM-DD format (e.g., 24-12-31 for Dec 31, 2024) in Eastern Time
 - `reason` (optional) - Optional reason for vacation
 
 **Note:** End date must be on or after start date. This helps track member availability during guild wars. All dates are in Eastern Time Zone (America/New_York) to match typical guild war schedules.
@@ -306,14 +306,14 @@ FamilyName1,10,5
 FamilyName2,15,8
 ...
 ```
-- First line: Date in DD-MM-YY format (Eastern Time)
+- First line: Date in YY-MM-DD format (e.g., 25-03-20 for March 20, 2025) in Eastern Time
 - Following lines: family_name,kills,deaths
 
 **Image Format:**
 - Supported formats: PNG, JPG, JPEG, WEBP
 - Maximum size: 5MB
 - Screenshot should contain:
-  - War date at the top in DD-MM-YY format
+  - War date at the top in YY-MM-DD format (e.g., 25-03-20 for March 20, 2025)
   - Family names in the leftmost column
   - Kills and deaths in the two rightmost columns
 - Requires `OPENAI_API_KEY` environment variable to be set
@@ -325,7 +325,7 @@ FamilyName2,15,8
 **Description:** Get war statistics for all roster members or a specific war date  
 **Required Role:** Officer Role  
 **Parameters:**
-- `date` (optional) - War date in DD-MM-YY format to show stats for that specific war
+- `date` (optional) - War date in YY-MM-DD format (e.g., 25-1-15 for Jan 15, 2025) to show stats for that specific war
 - `include_inactive` (optional) - Include inactive members in results (default: true)
 - `include_mercs` (optional) - Include mercenary members in results (default: false)
 - `team` (optional) - Filter results to only members of this team
@@ -343,7 +343,7 @@ FamilyName2,15,8
 **Description:** Get results of all wars from most recent to oldest  
 **Required Role:** Officer Role  
 **Output:** Displays for each war:
-- Date (DD-MM-YY format)
+- Date (YY-MM-DD format, e.g., 25-1-15 for Jan 15, 2025)
 - Result (W for Win, L for Lose)
 - Total kills for the guild
 - Total deaths for the guild
@@ -354,7 +354,7 @@ FamilyName2,15,8
 **Description:** Remove war data for a specific date  
 **Required Role:** Officer Role  
 **Parameters:**
-- `date` (required) - War date in DD-MM-YY format (e.g., 15-01-25) in Eastern Time
+- `date` (required) - War date in YY-MM-DD format (e.g., 25-1-15 for Jan 15, 2025) in Eastern Time
 
 **Note:** This command will remove all war data for the specified date, including all individual member statistics. The operation cannot be undone.
 
