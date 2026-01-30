@@ -251,7 +251,8 @@ func processImageWithOpenAI(imageData []byte, mimeType string) (warDate time.Tim
 						OfArrayOfContentParts: []openai.ChatCompletionContentPartUnionParam{
 							openai.TextContentPart(prompt),
 							openai.ImageContentPart(openai.ChatCompletionContentPartImageImageURLParam{
-								URL: imageBase64,
+								URL:    imageBase64,
+								Detail: "high", // Use high quality for best OCR accuracy
 							}),
 						},
 					},
