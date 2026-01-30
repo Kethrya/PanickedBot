@@ -1,0 +1,26 @@
+# Pull Request Labeler Configuration
+# Automatically labels PRs based on changed files
+
+documentation:
+  - changed-files:
+    - any-glob-to-any-file: ['**/*.md', 'docs/**/*']
+
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file: ['go.mod', 'go.sum']
+
+github-actions:
+  - changed-files:
+    - any-glob-to-any-file: ['.github/**/*']
+
+database:
+  - changed-files:
+    - any-glob-to-any-file: ['schema.sql', 'internal/db/**/*', 'sqlc.yaml']
+
+commands:
+  - changed-files:
+    - any-glob-to-any-file: ['internal/commands/**/*']
+
+discord:
+  - changed-files:
+    - any-glob-to-any-file: ['internal/discord/**/*']
