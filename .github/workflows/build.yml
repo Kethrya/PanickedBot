@@ -71,6 +71,7 @@ jobs:
       uses: codecov/codecov-action@v4
       if: success()
       with:
+        token: ${{ secrets.CODECOV_TOKEN }}
         file: coverage.txt
         fail_ci_if_error: false
         
