@@ -25,7 +25,7 @@ func getEasternLocation() *time.Location {
 
 // parseFlexibleDate parses a date string in DD-MM-YY format where day and month
 // can be either single or double digits (e.g., "26-1-28", "26-01-28", "1-1-28", "01-01-28")
-// Returns the parsed time in the Eastern timezone
+// Returns the parsed time in the specified timezone location
 func parseFlexibleDate(dateStr string, loc *time.Location) (time.Time, error) {
 	// Split the date string by dashes
 	parts := strings.Split(strings.TrimSpace(dateStr), "-")
